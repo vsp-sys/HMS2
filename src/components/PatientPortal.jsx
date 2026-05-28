@@ -158,6 +158,11 @@ export default function PatientPortal({
   const [checkoutInvoice, setCheckoutInvoice] = useState(null);
   const [payCardNum, setPayCardNum] = useState('');
   const [paySuccess, setPaySuccess] = useState(false);
+  const [checkoutAppointment, setCheckoutAppointment] = useState(null);
+  const [payApptSuccess, setPayApptSuccess] = useState(false);
+  const [payApptCardNum, setPayApptCardNum] = useState('');
+  const [payApptExpiry, setPayApptExpiry] = useState('');
+  const [payApptCvv, setPayApptCvv] = useState('');
 
   // 14. Advanced HIPAA, GDPR & DPDP parameters
   const [organDonationOpted, setOrganDonationOpted] = useState(false);
@@ -232,22 +237,45 @@ export default function PatientPortal({
     const docObj = doctors.find(d => d.id === selectedDocId);
     if (!docObj) return;
 
-    onBookAppointment({
+    setCheckoutAppointment({
       patientId: selectedPatient.id,
       patientName: selectedPatient.name,
       doctorId: docObj.id,
       doctorName: docObj.name,
+      doctorSpecialty: docObj.specialty,
       branchId: selectedPatient.branchId || 'br-1',
       date: appointmentDate,
       timeSlot: appointmentTime,
-      type: appointmentType
+      type: appointmentType,
+      amount: appointmentType === 'Telemedicine' ? 75 : 120
     });
+  };
 
-    setBookingSuccess(true);
+  const processAppointmentPayment = () => {
+    setPayApptSuccess(true);
     setTimeout(() => {
-      setBookingSuccess(false);
-      setActiveSubTab('booking'); // remain on book tab to see 예약 lists
-    }, 2500);
+      if (onBookAppointment && checkoutAppointment) {
+        onBookAppointment({
+          patientId: checkoutAppointment.patientId,
+          patientName: checkoutAppointment.patientName,
+          doctorId: checkoutAppointment.doctorId,
+          doctorName: checkoutAppointment.doctorName,
+          branchId: checkoutAppointment.branchId,
+          date: checkoutAppointment.date,
+          timeSlot: checkoutAppointment.timeSlot,
+          type: checkoutAppointment.type
+        });
+      }
+      setPayApptSuccess(false);
+      setCheckoutAppointment(null);
+      setBookingSuccess(true);
+      setPayApptCardNum('');
+      setPayApptExpiry('');
+      setPayApptCvv('');
+      setTimeout(() => {
+        setBookingSuccess(false);
+      }, 3000);
+    }, 2000);
   };
 
   const handleLogVitalsSubmit = (e) => {
@@ -571,6 +599,128 @@ export default function PatientPortal({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* SECURE ONLINE APPOINTMENT BOOKING PAYMENT GATEWAY */}
+      {checkoutAppointment && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4" id="appointment-payment-gateway">
+          <form 
+            onSubmit={(e) => { e.preventDefault(); processAppointmentPayment(); }}
+            className="w-full max-w-md bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xl"
+          >
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h4 className="text-sm font-bold flex items-center gap-1.5" id="lbl-gateway-title">
+                <CreditCard className="w-4 h-4 text-emerald-400 animate-pulse" />
+                MedCore Safe-Pay Gateway
+              </h4>
+              <button 
+                type="button" 
+                onClick={() => setCheckoutAppointment(null)} 
+                className="text-slate-400 hover:text-white font-bold text-xs cursor-pointer"
+                id="btn-close-gateway"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-150 text-xs text-slate-600 space-y-2">
+                <div className="flex justify-between">
+                  <span>Patient / Beneficiary:</span>
+                  <strong className="text-slate-800">{checkoutAppointment.patientName}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Clinician Designated:</span>
+                  <strong className="text-slate-800">{checkoutAppointment.doctorName} ({checkoutAppointment.doctorSpecialty})</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Scheduled Interval:</span>
+                  <strong className="text-slate-800">{checkoutAppointment.date} @ {checkoutAppointment.timeSlot}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Consultation Medium:</span>
+                  <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded font-bold text-[10px]">{checkoutAppointment.type}</span>
+                </div>
+                <div className="border-t border-dashed my-2 pt-2 space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span>Base Consultant Fee:</span>
+                    <span>${checkoutAppointment.type === 'Telemedicine' ? 60 : 100}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span>Secure Gateway Handshake Fee:</span>
+                    <span>$10</span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span>National Healthcare Cess:</span>
+                    <span>$5</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-slate-900 font-bold border-t pt-1.5 mt-1 text-sm">
+                  <span>Total Due Today:</span>
+                  <span className="text-emerald-700">${checkoutAppointment.amount}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-650 mb-1" htmlFor="input-card-number">Credit / Debit Card Number</label>
+                  <input
+                    type="text"
+                    id="input-card-number"
+                    required
+                    placeholder="4000 1234 5678 9010"
+                    maxLength={19}
+                    value={payApptCardNum}
+                    onChange={(e) => setPayApptCardNum(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-300 rounded-lg selection:bg-teal-100"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-650 mb-1" htmlFor="input-card-expiry">Expiry Date</label>
+                    <input 
+                      type="text" 
+                      id="input-card-expiry"
+                      required 
+                      placeholder="MM/YY" 
+                      maxLength={5} 
+                      value={payApptExpiry}
+                      onChange={(e) => setPayApptExpiry(e.target.value)}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-lg" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-650 mb-1" htmlFor="input-card-cvv">CVV Pin</label>
+                    <input 
+                      type="password" 
+                      id="input-card-cvv"
+                      required 
+                      placeholder="***" 
+                      maxLength={3} 
+                      value={payApptCvv}
+                      onChange={(e) => setPayApptCvv(e.target.value)}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-lg" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {payApptSuccess && (
+                <div className="text-center font-bold text-emerald-600 text-xs animate-pulse bg-emerald-50 border border-emerald-150 py-2 rounded-lg" id="payment-gate-authorization-status">
+                  ⚡ Authorizing SSL PCI DSS Compliant Handshake... Succeeded!
+                </div>
+              )}
+
+              <button
+                type="submit"
+                id="btn-submit-appointment-payment"
+                disabled={payApptSuccess}
+                className="w-full bg-slate-900 text-teal-400 hover:bg-slate-800 disabled:opacity-50 text-xs py-2.5 font-bold rounded-lg uppercase tracking-wider cursor-pointer"
+              >
+                {payApptSuccess ? 'Processing Settlement...' : `Approve & Settle $${checkoutAppointment.amount}`}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
