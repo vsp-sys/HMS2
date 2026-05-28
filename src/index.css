@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Eye-safe Slate Dark Mode overrides */
+.dark {
+  background-color: #020617 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Page, grid and dashboard blocks */
+.dark .bg-slate-50,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-55,
+.dark .bg-slate-100,
+.dark .bg-slate-100\/40,
+.dark .bg-slate-50\/40,
+.dark .bg-slate-100\/80,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-100\/50,
+.dark .bg-slate-100\/60,
+.dark .bg-slate-200\/40,
+.dark .bg-slate-300\/20,
+.dark .bg-slate-200\/30 {
+  background-color: #090e1a !important;
+}
+
+/* Main white panels/cards */
+.dark .bg-white,
+.dark .bg-slate-50\/10,
+.dark [class*="bg-white"] {
+  background-color: #0f172a !important;
+}
+
+/* Card heads & panels sub-headers */
+.dark .bg-slate-50\/30 {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+}
+
+/* Subdued borders to prevent high contrast lines in dark mode */
+.dark .border-slate-100,
+.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-205,
+.dark .border-slate-210,
+.dark .border-slate-200\/80,
+.dark .border-slate-250\/50,
+.dark .border-slate-200\/50 {
+  border-color: #1e293b !important;
+}
+
+/* Core dark texts representing titles & labels */
+.dark .text-slate-900,
+.dark .text-slate-850,
+.dark .text-slate-800,
+.dark .text-slate-750,
+.dark .text-slate-705,
+.dark .text-slate-700,
+.dark .text-slate-650,
+.dark .text-slate-600 {
+  color: #f1f5f9 !important;
+}
+
+/* Neutral & helper descriptive words */
+.dark .text-slate-550,
+.dark .text-slate-500,
+.dark .text-slate-505,
+.dark .text-slate-455,
+.dark .text-slate-405,
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* Form input, text areas and drop-downs adjustments */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* Special buttons & hover overrides */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-slate-50\/50:hover {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+/* Table elements */
+.dark table th,
+.dark thead {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+.dark table tr:hover {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+}
+
+/* Recharts visual charts adaptability */
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #334155 !important;
+}
+
+.dark .recharts-text {
+  fill: #94a3b8 !important;
+}
+
+.dark .recharts-legend-item-text {
+  color: #f1f5f9 !important;
+}
+
+/* Custom interactive overlays and alerts */
+.dark .bg-amber-50,
+.dark .bg-amber-50\/50,
+.dark .bg-yellow-50 {
+  background-color: #2c1a04 !important;
+  border-color: #78350f !important;
+}
+
+.dark .text-amber-800,
+.dark .text-yellow-800 {
+  color: #fde047 !important;
+}
+
+.dark .bg-blue-50,
+.dark .bg-indigo-50,
+.dark .bg-indigo-50\/30 {
+  background-color: #1e1b4b !important;
+  border-color: #312e81 !important;
+}
+
+.dark .text-indigo-800,
+.dark .text-blue-800 {
+  color: #c7d2fe !important;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/50,
+.dark .bg-green-50 {
+  background-color: #022c22 !important;
+  border-color: #064e3b !important;
+}
+
+.dark .text-emerald-800 {
+  color: #a7f3d0 !important;
+}

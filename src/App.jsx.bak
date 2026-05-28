@@ -1,0 +1,1977 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo } from 'react';
+import { 
+  Building2, Users, Search, Activity, Shield, Download, Lock, Check, Plus, 
+  Trash2, Globe, Sparkles, FileSpreadsheet, BadgeCheck, AlertTriangle, MessageSquare, 
+  ChevronRight, Calendar, Stethoscope, Heart, Clock, DollarSign, Pill, 
+  FileText, PlusCircle, User, Bell, Menu, X, ArrowRight, Video, FilePlus, RefreshCw, Send
+} from 'lucide-react';
+
+import { 
+  initialHospitals, 
+  initialBranches, 
+  initialBeds, 
+  initialDoctors, 
+  initialPatients, 
+  initialAppointments, 
+  initialPrescriptions, 
+  initialInvoices, 
+  initialLabOrders, 
+  initialHelpTickets, 
+  initialVitalLogs, 
+  initialFluidRecords, 
+  initialMARMedications, 
+  initialShiftHandoffs, 
+  initialEmergencyAlerts, 
+  initialAuditLogs,
+  initialMessages
+} from './data.js';
+
+export default function App() {
+  // --- ROBUST UNIFIED LIFECYCLE STATES ---
+  const [hospitals, setHospitals] = useState(initialHospitals);
+  const [branches, setBranches] = useState(initialBranches);
+  const [beds, setBeds] = useState(initialBeds);
+  const [doctors, setDoctors] = useState(initialDoctors);
+  const [patients, setPatients] = useState(initialPatients);
+  const [appointments, setAppointments] = useState(initialAppointments);
+  const [prescriptions, setPrescriptions] = useState(initialPrescriptions);
+  const [invoices, setInvoices] = useState(initialInvoices);
+  const [labOrders, setLabOrders] = useState(initialLabOrders);
+  const [tickets, setTickets] = useState(initialHelpTickets);
+  const [vitals, setVitals] = useState(initialVitalLogs);
+  const [fluids, setFluids] = useState(initialFluidRecords);
+  const [marMedications, setMarMedications] = useState(initialMARMedications);
+  const [handoffs, setHandoffs] = useState(initialShiftHandoffs);
+  const [emergencyAlerts, setEmergencyAlerts] = useState(initialEmergencyAlerts);
+  const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
+  const [chatMessages, setChatMessages] = useState(initialMessages);
+
+  // Active Screen Switcher: 'super-admin' | 'branch-admin' | 'clinical-staff' | 'practitioner' | 'patient-portal'
+  const [activePersona, setActivePersona] = useState('super-admin');
+
+  // Broadcast Alert Store (visible as immediate alert banners across panels if set)
+  const [activeBroadcast, setActiveBroadcast] = useState({
+    scope: 'All Staff',
+    text: 'Pre-scheduled database compression sweep starting at 03:00 UTC. Intermittent latency is expected for 2 minutes.',
+    timestamp: '07:20 AM'
+  });
+
+  // Global helper to append security events to our auditable HIPAA ledger
+  const logSystemEvent = (identity, action) => {
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const newLog = {
+      id: `aud-${Date.now()}`,
+      timestamp,
+      userType: identity,
+      action,
+      ip: `192.168.1.${Math.floor(Math.random() * 80) + 12}`
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+  };
+
+  // --- STATE HANDLERS ---
+
+  // Super Admin actions
+  const handleAddHospital = (newHosp) => {
+    const created = {
+      id: `hosp-${Date.now()}`,
+      joinedDate: new Date().toISOString().substring(0, 10),
+      branchesCount: 1,
+      ...newHosp
+    };
+    setHospitals(prev => [...prev, created]);
+    logSystemEvent('Super Admin', `Registered new healthcare enterprise brand: ${newHosp.name}`);
+  };
+
+  const handleToggleHospitalStatus = (id) => {
+    setHospitals(prev => prev.map(h => {
+      if (h.id === id) {
+        const nextState = !h.isActive;
+        logSystemEvent('Super Admin', `Toggled license lifecycle status for ${h.name} to ${nextState ? 'Active' : 'Suspended'}`);
+        return { ...h, isActive: nextState };
+      }
+      return h;
+    }));
+  };
+
+  const handleUpdateHospitalTier = (id, tier) => {
+    setHospitals(prev => prev.map(h => {
+      if (h.id === id) {
+        logSystemEvent('Super Admin', `Altered license subscription tier for ${h.name} to [${tier}]`);
+        return { ...h, tier };
+      }
+      return h;
+    }));
+  };
+
+  const handleResolveTicket = (id) => {
+    setTickets(prev => prev.map(t => {
+      if (t.id === id) {
+        logSystemEvent('Super Admin', `De-triaged & resolved system ticket regarding ${t.subject}`);
+        return { ...t, status: 'Resolved' };
+      }
+      return t;
+    }));
+  };
+
+  const handlePushBroadcast = (scope, text) => {
+    setActiveBroadcast({
+      scope,
+      text,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    });
+    logSystemEvent('Super Admin', `Dispatched universal broadcast alert targeted to ${scope}: "${text}"`);
+  };
+
+  // Branch Admin actions
+  const [branchSelectedWard, setBranchSelectedWard] = useState('ALL');
+  const handleToggleBedStatus = (bedId) => {
+    setBeds(prev => prev.map(b => {
+      if (b.id === bedId) {
+        let nextStatus = 'Available';
+        if (b.status === 'Available') nextStatus = 'Occupied';
+        else if (b.status === 'Occupied') nextStatus = 'Sanitation';
+        
+        const update = { ...b, status: nextStatus };
+        if (nextStatus === 'Available' || nextStatus === 'Sanitation') {
+          update.patientId = undefined;
+          update.patientName = undefined;
+        } else {
+          // Assign random patient from outpatient or unassigned
+          const unassigned = patients.find(p => p.status !== 'Inpatient');
+          if (unassigned) {
+            update.patientId = unassigned.id;
+            update.patientName = unassigned.name;
+            // Also update patient status
+            setPatients(old => old.map(p => p.id === unassigned.id ? { ...p, status: 'Inpatient' } : p));
+          } else {
+            update.patientId = 'pat-guest';
+            update.patientName = 'Walk-In Admitted Guest';
+          }
+        }
+        logSystemEvent('Branch Admin', `Modified infrastructure bed lifecycle (${b.bedNumber}) status to ${nextStatus}`);
+        return update;
+      }
+      return b;
+    }));
+  };
+
+  const handleRegisterPatient = (patientData) => {
+    const created = {
+      id: `pat-${Date.now()}`,
+      registeredDate: new Date().toISOString().substring(0, 10),
+      status: 'Outpatient',
+      branchId: 'br-1',
+      ...patientData
+    };
+    setPatients(prev => [...prev, created]);
+    logSystemEvent('Branch Admin', `Enrolled patient profile database record for ${patientData.name}`);
+  };
+
+  const handleEnrollDoctor = (doctorData) => {
+    const created = {
+      id: `doc-${Date.now()}`,
+      branchId: 'br-1',
+      rating: 5.0,
+      availability: 'On Duty',
+      earnings: 0,
+      ...doctorData
+    };
+    setDoctors(prev => [...prev, created]);
+    logSystemEvent('Branch Admin', `Provisioned medical practitioner credentials for ${doctorData.name} (${doctorData.specialty})`);
+  };
+
+  const handleChargeInvoice = (invoiceData) => {
+    const total = invoiceData.services.reduce((acc, curr) => acc + Number(curr.cost), 0);
+    const created = {
+      id: `inv-${Date.now()}`,
+      date: new Date().toISOString().substring(0, 10),
+      status: 'Unpaid',
+      totalAmount: total,
+      ...invoiceData
+    };
+    setInvoices(prev => [created, ...prev]);
+    logSystemEvent('Branch Admin', `Generated computerized service invoice for ${invoiceData.patientName} amounting to $${total}`);
+  };
+
+  const handleToggleInvoiceStatus = (invId) => {
+    setInvoices(prev => prev.map(inv => {
+      if (inv.id === invId) {
+        const nextStatus = inv.status === 'Unpaid' ? 'Pending' : inv.status === 'Pending' ? 'Paid' : 'Unpaid';
+        logSystemEvent('Branch Admin', `Reconciled payment voucher ${inv.id}: state mutated to ${nextStatus}`);
+        return { ...inv, status: nextStatus };
+      }
+      return inv;
+    }));
+  };
+
+  const handleAdvanceLabStatus = (labId) => {
+    setLabOrders(prev => prev.map(lab => {
+      if (lab.id === labId) {
+        let nextStatus = 'Queue';
+        let resultMsg = lab.result;
+        if (lab.status === 'Queue') {
+          nextStatus = 'In Progress';
+        } else if (lab.status === 'In Progress') {
+          nextStatus = 'Completed';
+          resultMsg = 'Automated clinical scan arrays processed: Normal reference parameters observed.';
+        } else {
+          nextStatus = 'Queue';
+          resultMsg = undefined;
+        }
+        logSystemEvent('Lab Operations', `Updated pathology workflow queue item ${lab.id} to ${nextStatus}`);
+        return { ...lab, status: nextStatus, result: resultMsg };
+      }
+      return lab;
+    }));
+  };
+
+  // Nursing & Staff actions
+  const handleTriggerEmergencyCode = (code, location) => {
+    const updatedAlerts = emergencyAlerts.map(alert => {
+      return { ...alert, active: false };
+    });
+    const newAlert = {
+      id: `eme-${Date.now()}`,
+      branchId: 'br-1',
+      code,
+      location,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      active: true
+    };
+    setEmergencyAlerts([newAlert, ...updatedAlerts]);
+    logSystemEvent('Ward Duty RN', `🚨 BROADCAST CRITICAL SHOT: Enforced Emergency Protocol CODE ${code.toUpperCase()} in ${location}!`);
+  };
+
+  const handleAcknowledgeEmergency = () => {
+    setEmergencyAlerts(prev => prev.map(alert => ({ ...alert, active: false })));
+    logSystemEvent('Clinical Supervisor', `Emergency alarm condition acknowledged and returned to nominal status.`);
+  };
+
+  const handleRecordVitals = (vitalLog) => {
+    const sysDia = vitalLog.bloodPressure.split('/');
+    const sys = sysDia[0] ? Number(sysDia[0]) : 120;
+    
+    // Auto-calculates stable vs warning vs critical classification
+    let rating = 'Stable';
+    if (vitalLog.spO2 < 93 || Number(vitalLog.heartRate) < 50 || Number(vitalLog.heartRate) > 130 || sys > 160 || sys < 90) {
+      rating = 'Critical';
+    } else if (vitalLog.spO2 <= 95 || sys > 140 || sys < 100) {
+      rating = 'Warning';
+    }
+
+    const created = {
+      id: `v-${Date.now()}`,
+      recordedAt: new Date().toISOString().substring(0, 10) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      classification: rating,
+      ...vitalLog
+    };
+    setVitals(prev => [created, ...prev]);
+    logSystemEvent('Nurse Desk', `Recorded continuous vitals parameters for ${vitalLog.patientName}. Status computed as: ${rating}`);
+  };
+
+  const handleAdministerMARMed = (marId) => {
+    setMarMedications(prev => prev.map(m => {
+      if (m.id === marId) {
+        logSystemEvent('Nursing Staff', `Administered pharmacy order dosage of ${m.medicineName} (${m.dose}) to ${m.patientName}`);
+        return { 
+          ...m, 
+          status: 'Administered', 
+          administeredAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) 
+        };
+      }
+      return m;
+    }));
+  };
+
+  const handleAddFluidRecord = (fluidLog) => {
+    const created = {
+      id: `f-${Date.now()}`,
+      recordedAt: new Date().toISOString().substring(0, 10) + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      ...fluidLog
+    };
+    setFluids(prev => [created, ...prev]);
+    logSystemEvent('Intensive Unit Desk', `Logged biological intake/output charting record for ${fluidLog.patientName}`);
+  };
+
+  const handlePublishHandoff = (handoffNote) => {
+    const created = {
+      id: `hd-${Date.now()}`,
+      branchId: 'br-1',
+      date: new Date().toISOString().substring(0, 10),
+      ...handoffNote
+    };
+    setHandoffs(prev => [created, ...prev]);
+    logSystemEvent('Clinical Handover', `Authorized shift handover continuous care transition report.`);
+  };
+
+  // Practitioner Module actions
+  const [selectedDoctorId, setSelectedDoctorId] = useState('doc-2'); // default: Dr. Gregory House
+  const activeDoctor = useMemo(() => {
+    return doctors.find(d => d.id === selectedDoctorId) || doctors[0];
+  }, [doctors, selectedDoctorId]);
+
+  const handleWritePrescription = (pxData) => {
+    const created = {
+      id: `pr-${Date.now()}`,
+      date: new Date().toISOString().substring(0, 10),
+      doctorId: activeDoctor.id,
+      doctorName: activeDoctor.name,
+      ...pxData
+    };
+    setPrescriptions(prev => [created, ...prev]);
+    logSystemEvent(activeDoctor.name, `Authored electronic HIPAA computerized medical script order for ${pxData.patientName}`);
+  };
+
+  // Patient Module actions
+  const [selectedPatientId, setSelectedPatientId] = useState('pat-1'); // default: Elena Rostova
+  const activePatient = useMemo(() => {
+    return patients.find(p => p.id === selectedPatientId) || patients[0];
+  }, [patients, selectedPatientId]);
+
+  // Reminders checklist simulation
+  const [medicineChecked, setMedicineChecked] = useState({
+    morning: true,
+    afternoon: false,
+    evening: false
+  });
+
+  const handleBookAppointment = (aptData) => {
+    const destDoc = doctors.find(d => d.id === aptData.doctorId);
+    const created = {
+      id: `apt-${Date.now()}`,
+      patientId: activePatient.id,
+      patientName: activePatient.name,
+      branchId: 'br-1',
+      status: 'Scheduled',
+      doctorName: destDoc ? destDoc.name : 'Attending Specialist',
+      ...aptData
+    };
+    setAppointments(prev => [...prev, created]);
+    logSystemEvent(activePatient.name, `Scheduled consultative session with ${created.doctorName} for date ${aptData.date}`);
+  };
+
+  const handleSendChatMessage = (textContent) => {
+    if (!textContent.trim()) return;
+    const newMsg = {
+      id: `msg-${Date.now()}`,
+      sender: 'You',
+      text: textContent,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      isBot: false
+    };
+    setChatMessages(prev => [...prev, newMsg]);
+
+    // Simulate reactive service response
+    setTimeout(() => {
+      const responseMsg = {
+        id: `msg-${Date.now() + 1}`,
+        sender: 'MedCore AI Node',
+        text: `Consultation system received message: "${textContent}". This inquiry has been triaged to our outpatient support queue.`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        isBot: true
+      };
+      setChatMessages(prev => [...prev, responseMsg]);
+    }, 1200);
+  };
+
+  // Calculated properties
+  const globalUptime = "99.98%";
+  const currentEmergency = useMemo(() => {
+    return emergencyAlerts.find(a => a.active);
+  }, [emergencyAlerts]);
+
+  return (
+    <div className="flex min-h-screen w-full bg-slate-50 font-sans text-slate-900 flex-row overflow-x-hidden">
+      
+      {/* 🚨 PERSISTENT OVERRIDE Emergency Overlay (HIPAA specification) */}
+      {currentEmergency && (
+        <div className="fixed inset-0 bg-red-650/95 z-999 flex flex-col items-center justify-center text-white p-8 animate-pulse text-center">
+          <div className="p-6 bg-white rounded-full text-red-600 mb-6 shadow-2xl">
+            <AlertTriangle className="w-16 h-16 animate-bounce" />
+          </div>
+          <h1 className="text-5xl font-black tracking-wider uppercase font-mono">
+            PROTOCOL CODE {currentEmergency.code.toUpperCase()} DEPLOYED
+          </h1>
+          <p className="text-2xl font-bold mt-4 max-w-2xl bg-black/30 px-6 py-3 rounded-xl border border-white/20">
+            Emergency Condition Dispatched in Location: {currentEmergency.location}
+          </p>
+          <div className="mt-8 flex gap-4 max-w-md w-full">
+            <button
+              onClick={handleAcknowledgeEmergency}
+              className="w-full text-center px-6 py-4 bg-white text-red-700 font-extrabold rounded-xl shadow-lg hover:bg-slate-100 transition-all text-lg cursor-pointer"
+            >
+              Acknowledge & Mute Code Alert
+            </button>
+          </div>
+          <span className="text-xs text-red-200 mt-4 font-mono">
+            Failsafe operator timestamp: {currentEmergency.timestamp} | Enforced by Ward Network node
+          </span>
+        </div>
+      )}
+
+      {/* LEFT SIDEBAR NAVIGATION */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col shrink-0 hidden md:flex border-r border-slate-800">
+        <div className="p-6 flex items-center justify-between border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">M</div>
+            <span className="text-lg font-bold tracking-tight">MedCore <span className="text-blue-400">Unified</span></span>
+          </div>
+          <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-slate-800 text-slate-400 rounded-sm">HHSv2</span>
+        </div>
+        
+        {/* Core Persona Navigation List */}
+        <div className="flex-1 px-4 py-6 space-y-7">
+          <div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-2">ROLE CONTROLLERS</div>
+            <nav className="space-y-1">
+              {[
+                { id: 'super-admin', label: 'Super Admin Page', icon: Building2, desc: 'Central licensing & audits' },
+                { id: 'branch-admin', label: 'Branch Operations', icon: Globe, desc: 'Wards, HR and invoicing' },
+                { id: 'clinical-staff', label: 'Nursing Workspace', icon: Heart, desc: 'Bedside vitals & triage' },
+                { id: 'practitioner', label: 'Doctor Workstation', icon: Stethoscope, desc: 'Schedules & Prescription writer' },
+                { id: 'patient-portal', label: 'Patient health Portal', icon: User, desc: 'Wallet, scheduling & compliance' }
+              ].map(item => {
+                const IconComp = item.icon;
+                const isActive = activePersona === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActivePersona(item.id)}
+                    className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10 font-medium' 
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <IconComp className={`w-5 h-5 shrink-0 mt-0.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                    <div className="overflow-hidden">
+                      <span className="text-sm block">{item.label}</span>
+                      <span className="text-[10px] opacity-70 block truncate text-slate-400 group-hover:text-slate-205">{item.desc}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Quick Noticebox */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-2 text-xs">
+            <span className="text-blue-400 font-bold uppercase tracking-wider text-[9px] block">LIVE ADVISORY NOTICE</span>
+            <div className="flex items-start gap-2 text-slate-300 leading-relaxed">
+              <span className="w-1.5 h-1.5 mt-1.5 bg-blue-500 rounded-full shrink-0" />
+              <p className="text-[11px]">{activeBroadcast.text}</p>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono block text-right mt-1">— Host Admin {activeBroadcast.timestamp}</span>
+          </div>
+        </div>
+
+        {/* User Identity widget */}
+        <div className="p-4 border-t border-slate-800 bg-slate-950">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-500 flex items-center justify-center font-bold text-white text-xs shrink-0 select-none">
+              SA
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-xs font-semibold text-white truncate font-medium">James R. Archer</p>
+              <p className="text-[10px] text-slate-400 truncate">Licensed Enterprise Representative</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN LAYOUT WRAPPER */}
+      <main className="flex-1 flex flex-col min-w-0 max-h-screen overflow-y-auto">
+        
+        {/* UPPER MAIN HEADER & MOBILE TOP BAR */}
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 sm:px-8 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="md:hidden w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shrink-0">M</div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                MedCore Unified Platform
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[9px] font-mono text-emerald-700 bg-emerald-50 rounded-sm uppercase tracking-widest font-bold">
+                  HIPAA Secured
+                </span>
+              </h1>
+              {/* Active persona breadcrumb */}
+              <div className="text-xs text-slate-400 font-medium">
+                Active context: <strong className="text-blue-600 uppercase tracking-wider">{activePersona.replace('-', ' ')}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            
+            {/* Rapid Role Swapper for mobile / convenience viewing */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-2 hidden lg:inline">SWAP ROLE VIEW:</span>
+              <select
+                value={activePersona}
+                onChange={(e) => setActivePersona(e.target.value)}
+                className="bg-white border-none rounded text-xs py-1 px-2.5 font-bold text-slate-705 focus:outline-hidden"
+              >
+                <option value="super-admin">Super Admin console</option>
+                <option value="branch-admin">Branch Operations</option>
+                <option value="clinical-staff">Clinical & Nurses</option>
+                <option value="practitioner">Doctor desk</option>
+                <option value="patient-portal">Patient Dashboard</option>
+              </select>
+            </div>
+
+            {/* Health signal beacon */}
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0"></span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:inline">Systems Nominal</span>
+            </div>
+          </div>
+        </header>
+
+        {/* CONSOLIDATED CORE WORKSPACE SCREEN */}
+        <div className="p-4 sm:p-8 flex-1">
+          
+          {/* Universal notification alert across all modules */}
+          {activeBroadcast && (
+            <div className="mb-6 bg-slate-900 border border-slate-800 text-teal-400 px-4 py-3 rounded-xl flex items-start gap-3 shadow-xs">
+              <Bell className="w-5 h-5 shrink-0 text-blue-400 animate-pulse mt-0.5" />
+              <div className="text-xs">
+                <span className="font-extrabold uppercase tracking-wide font-mono mr-2">Ecosystem Dispatch:</span>
+                <span className="text-slate-100">{activeBroadcast.text}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 1. SUPER ADMIN WORKSPACE */}
+          {activePersona === 'super-admin' && (
+            <div className="space-y-6">
+              
+              {/* Dynamic stats row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { label: 'Active Licensing', value: hospitals.length, desc: `${hospitals.filter(h => h.isActive).length} facilities online`, icon: Building2, color: 'text-blue-600 bg-blue-50' },
+                  { label: 'Network Branches', value: branches.length, desc: 'Synchronized nodes', icon: Globe, color: 'text-teal-600 bg-teal-50' },
+                  { label: 'Global Bed Occupancy', value: `${Math.round((beds.filter(b => b.status === 'Occupied').length / beds.length) * 100)}%`, desc: `${beds.filter(b => b.status === 'Occupied').length}/${beds.length} beds allocated`, icon: Activity, color: 'text-orange-600 bg-orange-50' },
+                  { label: 'ARR Subscriptions', value: '$4.2M', desc: '+12.4% year-over-year', icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' }
+                ].map((stat, i) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
+                        <h4 className="text-2xl font-bold text-slate-900">{stat.value}</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{stat.desc}</p>
+                      </div>
+                      <div className={`p-3 rounded-xl ${stat.color} shrink-0`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Main Enterprise layout grids (2 columns) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Hospital Facility Licensing manager */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm">Enterprise License & Status Control Panel</h3>
+                      <p className="text-xs text-slate-400">Manage active healthcare networks, subscription models and administrative status</p>
+                    </div>
+                    
+                    {/* Add Hospital mini form trigger */}
+                    <button 
+                      onClick={() => {
+                        const name = prompt("Enter Hospital Enterprise Name:");
+                        const code = prompt("Enter Code Prefix (3-8 letters, e.g., NYMC):");
+                        const email = prompt("Enter Administration Contact Email:");
+                        if (name && code && email) {
+                          handleAddHospital({ name, code: code.toUpperCase(), tier: 'Standard', isActive: true, contactEmail: email });
+                        }
+                      }}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Provision New Network
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-700">
+                      <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase font-bold tracking-widest border-b border-slate-100">
+                        <tr>
+                          <th className="px-6 py-3">Institution & Code</th>
+                          <th className="px-6 py-3">Licensing Tier</th>
+                          <th className="px-6 py-3 text-center">Branches</th>
+                          <th className="px-6 py-3">Audit Operations</th>
+                          <th className="px-6 py-3 text-right">Access Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {hospitals.map(hospital => (
+                          <tr key={hospital.id} className="hover:bg-slate-55/60 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="font-semibold text-slate-850">{hospital.name}</div>
+                              <div className="text-slate-400 font-mono mt-0.5">{hospital.code} • {hospital.contactEmail}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <select 
+                                value={hospital.tier} 
+                                onChange={(e) => handleUpdateHospitalTier(hospital.id, e.target.value)}
+                                className="font-bold text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border-none cursor-pointer"
+                              >
+                                <option value="Basic">BASIC</option>
+                                <option value="Standard">STANDARD</option>
+                                <option value="Enterprise">ENTERPRISE</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 text-center font-mono font-bold text-slate-500">{hospital.branchesCount}</td>
+                            <td className="px-6 py-4 text-slate-400 font-sans">Registered on {hospital.joinedDate}</td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() => handleToggleHospitalStatus(hospital.id)}
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg cursor-pointer ${
+                                  hospital.isActive 
+                                    ? 'bg-emerald-100 text-emerald-805 hover:bg-emerald-200' 
+                                    : 'bg-rose-100 text-rose-805 hover:bg-rose-200'
+                                }`}
+                              >
+                                {hospital.isActive ? 'ACTIVE GATEWAY' : 'GATEWAY REVOKED'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Tickets Triage Desk & Security operations (1 / 3 view) */}
+                <div className="space-y-6">
+                  
+                  {/* System Broadcast Control Box */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                    <h3 className="font-bold text-slate-850 text-sm flex items-center gap-1.5 pb-2 border-b border-slate-150">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      Universal Broadcast Desk
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Dispatch priority directives instantly injected on nurse duty boards & customer screens.
+                    </p>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const data = new FormData(e.currentTarget);
+                        const msg = data.get('msgText');
+                        const scp = data.get('scope');
+                        if (msg) {
+                          handlePushBroadcast(scp, msg);
+                          e.currentTarget.reset();
+                          alert('Notice published globally across platform views.');
+                        }
+                      }}
+                      className="mt-4 space-y-3"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Target Scope</span>
+                        <select name="scope" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
+                          <option value="All Staff">All Clinical Staff</option>
+                          <option value="Doctors">Doctor Terminals Only</option>
+                          <option value="Patients">Patient Portal Wallets</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Message Directive</span>
+                        <textarea name="msgText" required placeholder="Type operational broadcast alert..." className="w-full p-2 text-xs bg-slate-100 rounded-lg border-none focus:ring-1 focus:ring-blue-500" h-20="true" />
+                      </div>
+                      <button type="submit" className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-teal-400 text-xs font-bold font-mono rounded-lg cursor-pointer">
+                        PUBLISH PRIORITY BULLETIN
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Operational Helpdesk triage */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-55/40 flex items-center justify-between">
+                      <h3 className="font-bold text-slate-800 text-xs">Helpdesk Dispatch Tickets</h3>
+                      <span className="px-1.5 py-0.5 text-[9px] font-mono bg-amber-100 text-amber-800 rounded font-bold">
+                        {tickets.filter(t => t.status === 'Open').length} ACTIVE
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto p-4 space-y-3">
+                      {tickets.map(tkt => (
+                        <div key={tkt.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-slate-700">{tkt.subject}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-bold tracking-widest uppercase ${
+                              tkt.priority === 'High' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-200 text-slate-600'
+                            }`}>{tkt.priority}</span>
+                          </div>
+                          <p className="text-slate-500 font-sans leading-tight text-[11px]">{tkt.description}</p>
+                          <div className="flex justify-between items-center pt-2">
+                            <span className="text-[10px] text-slate-400 font-mono italic">{tkt.raisedBy} • {tkt.createdDate}</span>
+                            {tkt.status === 'Open' ? (
+                              <button 
+                                onClick={() => handleResolveTicket(tkt.id)}
+                                className="px-2 py-0.5 bg-slate-900 text-white rounded text-[10px] hover:bg-slate-850 cursor-pointer font-bold font-mono"
+                              >
+                                RESOLVE
+                              </button>
+                            ) : (
+                              <span className="text-emerald-600 text-[10px] font-bold">✔ RESOLVED</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cloud backups sim */}
+                  <div className="bg-slate-950 p-5 rounded-2xl text-white space-y-3 border border-slate-900">
+                    <h3 className="text-xs font-bold text-teal-400 font-mono tracking-widest uppercase flex items-center gap-1">
+                      <Download className="w-3.5 h-3.5 animate-bounce" /> COLD STORAGE SCHEDULER
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                      Initialize cold archiving of clinical tables (audits, prescriptions, logs) to backup AWS server.
+                    </p>
+                    <button 
+                      onClick={() => {
+                        logSystemEvent('Super Admin', 'Failsafe manual cold-database partition archive backup initialized.');
+                        alert('Ecosystem Snapshot Taken!\n- Tables Backed Up: hospitals, patients, beds, records, billing ledger\n- Secure Encryption standard: AES-256 validated\n- Storage Target: MedCore Remote AWS Cloud East Node');
+                      }}
+                      className="w-full py-2 bg-teal-650 hover:bg-teal-700 text-white font-bold text-xs font-mono rounded-lg transition-colors cursor-pointer"
+                    >
+                      SNAPSHOT ENTIRE PLATFORM
+                    </button>
+                    <div className="text-[9px] text-slate-500 font-mono text-center">
+                      SHA256: 7d8f9e0a2b53c1f80e07b8ffc117e
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Security operations audit log ledger */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-850 text-sm">HIPAA Immutable Security Operations Ledger</h3>
+                    <p className="text-xs text-slate-400">Cryptographically stamped action ledger of facility modifications and clinical writes</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      logSystemEvent('Super Admin', 'Emergency System Shield Active constraint: Lockout mode deployed.');
+                      alert('Deploying Defensive Shield Override!\n- Biometric auth rules enforced systemwide\n- Temporarily restricted non-VPN staff authentication\n- Read-only limits placed on patient file modifications');
+                    }}
+                    className="px-3 py-1.5 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-bold tracking-wider font-mono cursor-pointer"
+                  >
+                    🚨 DEPLOY SECURITY LOCKDOWN
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-650 font-mono">
+                    <thead className="bg-slate-50 text-slate-500 uppercase font-black text-[9px] tracking-widest border-b border-slate-100">
+                      <tr>
+                        <th className="px-4 py-2">STAMP (UTC)</th>
+                        <th className="px-4 py-2">OPERATIVE IDENTITY</th>
+                        <th className="px-4 py-2">WRITE EVENT / COMPLIANCE RECORD</th>
+                        <th className="px-4 py-2 text-right">INBOUND METADATA IP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auditLogs.map(log => (
+                        <tr key={log.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-slate-400">{log.timestamp}</td>
+                          <td className="px-4 py-3 font-bold text-slate-800">{log.userType}</td>
+                          <td className="px-4 py-3 text-slate-650">{log.action}</td>
+                          <td className="px-4 py-3 text-right text-slate-400">{log.ip}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* 2. BRANCH ADMIN WORKSPACE */}
+          {activePersona === 'branch-admin' && (
+            <div className="space-y-6">
+              
+              {/* Branch overview widgets */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Operational Node</span>
+                  <div className="text-lg font-extrabold text-slate-800 mt-1">Mayo General - NY Downtown</div>
+                  <div className="text-xs text-slate-500 font-medium">Beds Capacity: {beds.length} Total slots</div>
+                  <div className="mt-3 text-xs bg-slate-50 px-3 py-1.5 rounded-lg text-slate-600 flex justify-between font-mono">
+                    <span>Occupied Beds:</span>
+                    <strong className="text-blue-600">{beds.filter(b => b.status === "Occupied").length} ({Math.round(beds.filter(b => b.status === "Occupied").length / beds.length * 100)}%)</strong>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Healthcare Personnel</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1">{doctors.length} Doctors</div>
+                  <div className="text-xs text-slate-500 font-medium">On Duty: {doctors.filter(d => d.availability === 'On Duty' || d.availability === 'Emergency').length} clinical operators</div>
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-teal-650 font-bold font-mono">
+                    <Check className="w-4 h-4 text-emerald-500" /> All Personnel Verified Check
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Reconciled Income</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1">
+                    ${invoices.filter(i => i.status === 'Paid').reduce((acc, curr) => acc + curr.totalAmount, 0) + doctors.reduce((acc, curr) => acc + curr.earnings, 0)}
+                  </div>
+                  <div className="text-xs text-slate-500 font-medium">From custom invoices & clinical consultations</div>
+                  <div className="mt-3 text-xs text-red-500 font-bold font-mono">
+                    ${invoices.filter(i => i.status === 'Unpaid').reduce((acc, curr) => acc + curr.totalAmount, 0)} outstanding collections
+                  </div>
+                </div>
+              </div>
+
+              {/* interactive Bed Ward Visual Manager */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100 mb-6 gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-855 text-sm flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-600" />
+                      IPD Ward Bed Lifecyle Traffic Control Map
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Directly coordinate bed states: Occupied, Sanitation validation, or immediate Availability</p>
+                  </div>
+
+                  {/* Ward Filter tab switcher */}
+                  <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+                    {['ALL', 'ICU', 'General Ward', 'Cardiology', 'Pediatrics'].map(w => (
+                      <button
+                        key={w}
+                        onClick={() => setBranchSelectedWard(w)}
+                        className={`text-[10px] px-2.5 py-1 rounded font-bold cursor-pointer uppercase tracking-wider ${
+                          branchSelectedWard === w ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {w}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Grid layout representational bed maps */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {beds
+                    .filter(b => branchSelectedWard === 'ALL' || b.wardName === branchSelectedWard)
+                    .map(bed => {
+                      return (
+                        <div 
+                          key={bed.id}
+                          onClick={() => handleToggleBedStatus(bed.id)}
+                          className={`p-4 rounded-xl border transition-all hover:scale-[1.02] cursor-pointer text-xs select-none relative ${
+                            bed.status === 'Occupied' ? 'bg-slate-900 text-white border-slate-900' :
+                            bed.status === 'Sanitation' ? 'bg-amber-50 text-amber-900 border-amber-250' :
+                            'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className="font-mono text-[9px] font-extrabold uppercase tracking-widest">{bed.wardName}</span>
+                            <span className={`w-2.5 h-2.5 rounded-full ${
+                              bed.status === 'Occupied' ? 'bg-indigo-400' :
+                              bed.status === 'Sanitation' ? 'bg-amber-400' :
+                              'bg-emerald-400'
+                            }`} />
+                          </div>
+
+                          <div className="mt-3">
+                            <div className="font-bold font-mono text-xs">{bed.bedNumber}</div>
+                            {bed.status === 'Occupied' ? (
+                              <div className="mt-1 font-sans text-[10px] text-teal-300 font-bold truncate">✔ {bed.patientName}</div>
+                            ) : bed.status === 'Sanitation' ? (
+                              <div className="mt-1 text-[10px] text-amber-700 font-medium">Needs Sterilizing</div>
+                            ) : (
+                              <div className="mt-1 text-[10px] text-emerald-600 font-bold">Unoccupied - Free</div>
+                            )}
+                          </div>
+                          
+                          <span className="absolute bottom-2 right-2 text-[8px] opacity-60 font-mono">
+                            Click Swap
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Forms & invoice creators */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Outpatient admission, patient enroll, and Doctor hiring directory form */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      Enroll Clinical Personnel
+                    </h3>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const name = fd.get('docName');
+                        const specialty = fd.get('docSpec');
+                        const contact = fd.get('docContact');
+                        if (name && specialty && contact) {
+                          handleEnrollDoctor({ name, specialty, contact });
+                          e.currentTarget.reset();
+                          alert('Practitioner registered inside facility medical registry directory.');
+                        }
+                      }}
+                      className="mt-3 space-y-2"
+                    >
+                      <input required type="text" name="docName" placeholder="e.g. Dr. John Watson" className="w-full p-2 text-xs bg-slate-50 border border-slate-250 rounded-lg" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select name="docSpec" className="p-2 text-xs bg-slate-50 border border-slate-250 rounded-lg">
+                          <option value="Cardiology">Cardiology</option>
+                          <option value="Immunology">Immunology</option>
+                          <option value="Diagnostic Medicine">Diagnostics</option>
+                          <option value="Neurosurgery">Neurosurgery</option>
+                          <option value="Pediatrics">Pediatrics</option>
+                        </select>
+                        <input required type="text" name="docContact" placeholder="Contact number" className="w-full p-2 text-xs bg-slate-50 border border-slate-250 rounded-lg" />
+                      </div>
+                      <button type="submit" className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] tracking-wider uppercase font-bold rounded-lg cursor-pointer">
+                        Hire Attending Practitioner
+                      </button>
+                    </form>
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <User className="w-4 h-4 text-emerald-600" />
+                      Register New Patient Case
+                    </h3>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const name = fd.get('patName');
+                        const age = fd.get('patAge');
+                        const gender = fd.get('patGender');
+                        const bg = fd.get('patBG');
+                        const phone = fd.get('patPhone');
+                        if (name && age && phone) {
+                          handleRegisterPatient({ name, age: Number(age), gender, bloodGroup: bg, phone, email: `${name.toLowerCase().replace(/\s/g, '')}@hms-mail.org`, address: 'Main Ward, NY' });
+                          e.currentTarget.reset();
+                          alert('New patient registration complete.');
+                        }
+                      }}
+                      className="mt-3 space-y-2"
+                    >
+                      <input required type="text" name="patName" placeholder="Patient Full Name" className="w-full p-2 text-xs bg-slate-50 border border-slate-250 rounded-lg" />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input required type="number" name="patAge" placeholder="Age" className="p-2 text-xs bg-slate-55 border border-slate-250 rounded-lg" />
+                        <select name="patGender" className="p-2 text-xs bg-slate-55 border border-slate-250 rounded-lg">
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        <select name="patBG" className="p-2 text-xs bg-slate-55 border border-slate-250 rounded-lg">
+                          <option value="A+">A+</option>
+                          <option value="O-">O-</option>
+                          <option value="B+">B+</option>
+                          <option value="AB+">AB+</option>
+                          <option value="O+">O+</option>
+                        </select>
+                      </div>
+                      <input required type="text" name="patPhone" placeholder="Cell Number" className="w-full p-2 text-xs bg-slate-50 border border-slate-250 rounded-lg" />
+                      <button type="submit" className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] tracking-wider uppercase font-bold rounded-lg cursor-pointer">
+                        Enroll Patient Profile
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Charge custom billing invoices */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <DollarSign className="w-4 h-4 text-blue-600" />
+                      Billing Invoice Dispenser
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">Dispense itemized computer bills for inpatient care checkout procedures, radiology or lab exams.</p>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const patId = fd.get('invPat');
+                        const serviceDesc1 = fd.get('srv1');
+                        const serviceCost1 = fd.get('cost1');
+                        const serviceDesc2 = fd.get('srv2');
+                        const serviceCost2 = fd.get('cost2');
+                        
+                        const patObj = patients.find(p => p.id === patId);
+                        if (patObj && serviceDesc1 && serviceCost1) {
+                          const services = [
+                            { description: serviceDesc1, cost: Number(serviceCost1) }
+                          ];
+                          if (serviceDesc2 && serviceCost2) {
+                            services.push({ description: serviceDesc2, cost: Number(serviceCost2) });
+                          }
+                          handleChargeInvoice({
+                            patientId: patObj.id,
+                            patientName: patObj.name,
+                            services,
+                            branchId: 'br-1'
+                          });
+                          e.currentTarget.reset();
+                          alert('Voucher Invoiced successfully.');
+                        }
+                      }}
+                      className="mt-4 space-y-2 text-xs"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400">Target Inpatient Wallet</span>
+                        <select name="invPat" className="w-full bg-slate-100 border-none rounded p-1.5">
+                          {patients.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.status})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <input required type="text" name="srv1" placeholder="Consult, MRI, Lab..." className="col-span-2 p-1 bg-slate-50 border border-slate-200 rounded" />
+                        <input required type="number" name="cost1" placeholder="$ Price" className="p-1 bg-slate-50 border border-slate-200 rounded" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <input type="text" name="srv2" placeholder="Secondary item (Optional)" className="col-span-2 p-1 bg-slate-50 border border-slate-200 rounded" />
+                        <input type="number" name="cost2" placeholder="$ Price" className="p-1 bg-slate-50 border border-slate-200 rounded" />
+                      </div>
+                      <button type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold tracking-wider text-[10px] uppercase rounded-lg cursor-pointer">
+                        DISPENSE SIGNED LEDGER INVOICE
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Live Diagnostic Queue Tracker */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Stethoscope className="w-4 h-4 text-teal-650" />
+                      Live Laboratory Pathology Queue
+                    </h3>
+                    <div className="divide-y divide-slate-100 space-y-2 mt-3 max-h-[220px] overflow-y-auto">
+                      {labOrders.map(lab => (
+                        <div key={lab.id} className="pt-2 text-xs space-y-1">
+                          <div className="flex justify-between font-medium">
+                            <span className="text-slate-800">{lab.patientName}</span>
+                            <span className={`px-1.5 py-0.5 text-[9px] font-bold tracking-wider rounded uppercase ${
+                              lab.status === 'Completed' ? 'bg-emerald-100 text-emerald-805' :
+                              lab.status === 'In Progress' ? 'bg-blue-100 text-blue-805' :
+                              'bg-amber-100 text-amber-805'
+                            }`}>{lab.status}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500">{lab.testName}</div>
+                          {lab.result && (
+                            <div className="bg-slate-100 p-1.5 text-[10px] text-slate-600 italic rounded">
+                              Result: {lab.result}
+                            </div>
+                          )}
+                          <div className="text-right">
+                            <button 
+                              onClick={() => handleAdvanceLabStatus(lab.id)}
+                              className="text-[9px] text-blue-600 font-bold hover:underline cursor-pointer bg-slate-50 px-1 py-0.5 rounded border border-slate-100"
+                            >
+                              ADVANCE STATUS ➔
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Billing ledger directory with reconciliation click status */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">Finances ledger & Vouchers Reconciliation</h3>
+                    <p className="text-xs text-slate-400">Clicking on any payment badge toggles status dynamically between Paid, Unpaid and Pending</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                      <tr>
+                        <th className="px-6 py-2">Invoice Code</th>
+                        <th className="px-6 py-2">Patient Profile</th>
+                        <th className="px-6 py-2">Date dispelled</th>
+                        <th className="px-6 py-2">Billed items Summary</th>
+                        <th className="px-6 py-2 text-right">Sum total Charged</th>
+                        <th className="px-6 py-2 text-right">Payment Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {invoices.map(inv => (
+                        <tr key={inv.id} className="hover:bg-slate-50">
+                          <td className="px-6 py-3 font-mono font-bold text-slate-500">{inv.id}</td>
+                          <td className="px-6 py-3 font-semibold text-slate-800">{inv.patientName}</td>
+                          <td className="px-6 py-3 text-slate-400">{inv.date}</td>
+                          <td className="px-6 py-3 text-slate-500">
+                            {inv.services.map(s => `${s.description} ($${s.cost})`).join(', ')}
+                          </td>
+                          <td className="px-6 py-3 text-right font-bold text-slate-800 font-mono">${inv.totalAmount}</td>
+                          <td className="px-6 py-3 text-right">
+                            <button
+                              onClick={() => handleToggleInvoiceStatus(inv.id)}
+                              className={`px-3 py-1 font-mono font-bold text-[10px] rounded-full cursor-pointer uppercase ${
+                                inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-805' :
+                                inv.status === 'Unpaid' ? 'bg-rose-100 text-rose-805' :
+                                'bg-amber-100 text-amber-805'
+                              }`}
+                            >
+                              {inv.status} (Toggle)
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* 3. CLINICAL STAFF & NURSING WORKSPACE */}
+          {activePersona === 'clinical-staff' && (
+            <div className="space-y-6">
+              
+              {/* EMERGENCY CODE BROADCASTER BLOCK */}
+              <div className="p-6 bg-red-50 border border-red-200 rounded-3xl shadow-xs">
+                <span className="text-[10px] font-black text-red-700 tracking-widest uppercase block mb-1">
+                  CRITICAL CARE INTERCONNECT TERMINAL
+                </span>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-905 text-sm md:text-md">Point-Of-Care Critical Code Broadcaster</h3>
+                    <p className="text-xs text-slate-505">Trigger urgent, full-screen emergency system overrides across MedCore clients immediately.</p>
+                  </div>
+                  
+                  {/* Urgent signal action triggers */}
+                  <div className="flex gap-3 shrink-0">
+                    <button
+                      onClick={() => {
+                        const loc = prompt("Specify cardiac emergency ward location:", "ICU Bed Room 3A");
+                        if (loc) handleTriggerEmergencyCode('Blue', loc);
+                      }}
+                      className="px-4 py-3 bg-red-650 hover:bg-red-700 text-white text-xs font-black font-mono rounded-xl shadow-md border-b-2 border-red-800 animate-pulse cursor-pointer"
+                    >
+                      🚨 TRIGGER CODE BLUE (Cardiac)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const loc = prompt("Specify active hazard zone location:", "Cardiology wing corridor B");
+                        if (loc) handleTriggerEmergencyCode('Red', loc);
+                      }}
+                      className="px-4 py-3 bg-orange-650 hover:bg-orange-700 text-slate-900 text-xs font-black font-mono rounded-xl shadow-md border-b-2 border-orange-850 cursor-pointer"
+                    >
+                      ⚠️ TRIGGER CODE RED (Fire/Hazard)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vitals logs chart & Medication administering MAR workspace */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Bedside continuous vitals logs charting and dynamic risk calc */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                      <h3 className="font-bold text-slate-805 text-xs">Bedside Vital Logger</h3>
+                      <span className="text-[9px] font-mono text-emerald-600 font-bold">Auto Diagnostics Calc</span>
+                    </div>
+
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const patId = fd.get('vPat');
+                        const hr = fd.get('vHR');
+                        const bp = fd.get('vBP');
+                        const sp = fd.get('vSp');
+                        const temp = fd.get('vTemp');
+                        const nurse = fd.get('vNurse');
+
+                        const foundP = patients.find(p => p.id === patId);
+                        if (foundP && hr && bp && sp && temp) {
+                          handleRecordVitals({
+                            patientId: foundP.id,
+                            patientName: foundP.name,
+                            heartRate: Number(hr),
+                            bloodPressure: bp,
+                            spO2: Number(sp),
+                            temperature: Number(temp),
+                            loggedBy: nurse || 'Attending RN'
+                          });
+                          e.currentTarget.reset();
+                          alert('Patient bedside physiological telemetry successfully written.');
+                        }
+                      }}
+                      className="mt-4 space-y-2 text-xs"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400">Target Clinical Patient</span>
+                        <select name="vPat" className="w-full bg-slate-50 border border-slate-200 p-1.5 rounded-lg text-xs">
+                          {patients.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.status})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400">Heart Rate (bpm)</span>
+                          <input required type="number" name="vHR" placeholder="72" className="w-full p-1.5 bg-slate-55 border border-slate-200 rounded text-xs" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400">Blood Pressure (S/D)</span>
+                          <input required type="text" name="vBP" placeholder="120/80" className="w-full p-1.5 bg-slate-55 border border-slate-200 rounded text-xs font-mono" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400">Oxygen SpO2 (%)</span>
+                          <input required type="number" name="vSp" placeholder="98" className="w-full p-1.5 bg-slate-55 border border-slate-200 rounded text-xs" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400">Temperature (°F)</span>
+                          <input required type="number" step="0.1" name="vTemp" placeholder="98.6" className="w-full p-1.5 bg-slate-55 border border-slate-200 rounded text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400">Attending Clinician signature</span>
+                        <input required type="text" name="vNurse" defaultValue="Nurse Jenkins, RN" className="w-full p-1.5 bg-slate-55 border border-slate-200 rounded text-xs" />
+                      </div>
+                      <button type="submit" className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-teal-400 font-mono font-bold text-[10px] tracking-wider uppercase rounded-lg cursor-pointer mt-2">
+                        LOG CLINICAL VITALS RECORD
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Medication Administration Record (MAR) validation checklists */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                      <h3 className="font-bold text-slate-808 text-xs">MEDICATION ADMINISTRATION RECORD (MAR)</h3>
+                      <span className="text-[9px] font-mono text-indigo-650 font-bold">Shift Timeline adherence</span>
+                    </div>
+
+                    <div className="divide-y divide-slate-100 space-y-2 mt-4 max-h-[250px] overflow-y-auto">
+                      {marMedications.map(mar => (
+                        <div key={mar.id} className="pt-2 text-xs flex justify-between items-center gap-2">
+                          <div>
+                            <div className="font-bold text-slate-900">{mar.medicineName} ({mar.dose})</div>
+                            <div className="text-[10px] text-slate-500">Patient: <strong className="text-slate-700">{mar.patientName}</strong></div>
+                            <div className="text-[10px] text-indigo-500 font-mono">Scheduled: {mar.scheduledTime}</div>
+                          </div>
+                          <div>
+                            {mar.status === 'Administered' ? (
+                              <div className="text-[10px] font-bold text-emerald-600 font-mono">
+                                ✔ ADMINISTERED AT {mar.administeredAt}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleAdministerMARMed(mar.id)}
+                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-mono font-bold uppercase cursor-pointer"
+                              >
+                                DISPENSE
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fluid Intake & Output charting and nurse handover logs */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 uppercase tracking-wide">
+                      Fluid Intake/Output Charting log
+                    </h3>
+                    
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const patId = fd.get('fPat');
+                        const inMl = fd.get('fInt');
+                        const outMl = fd.get('fOut');
+                        const note = fd.get('fNote');
+
+                        const foundP = patients.find(p => p.id === patId);
+                        if (foundP && inMl && outMl) {
+                          handleAddFluidRecord({
+                            patientId: foundP.id,
+                            patientName: foundP.name,
+                            intakeMl: Number(inMl),
+                            outputMl: Number(outMl),
+                            notes: note || 'Normal hydration metrics parameters'
+                          });
+                          e.currentTarget.reset();
+                          alert('Fluid Intake & Output charted record saved.');
+                        }
+                      }}
+                      className="mt-3 space-y-2 text-xs"
+                    >
+                      <select name="fPat" className="w-full bg-slate-50 border p-1 rounded">
+                        {patients.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input required type="number" name="fInt" placeholder="Intake (ml) e.g. 500" className="p-1 text-xs bg-slate-55 border rounded" />
+                        <input required type="number" name="fOut" placeholder="Output (ml) e.g. 400" className="p-1 text-xs bg-slate-55 border rounded" />
+                      </div>
+                      <input type="text" name="fNote" placeholder="Handover notes / state" className="w-full p-1 text-xs bg-slate-55 border rounded" />
+                      <button type="submit" className="w-full py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] uppercase font-bold font-mono rounded cursor-pointer">
+                        RECORD FLUID TRACK
+                      </button>
+                    </form>
+
+                    {/* Shift Handoff formulation */}
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 block mb-1">DRAFT SHIFT HANDOVER CONTROLLER</span>
+                      <button 
+                        onClick={() => {
+                          const outS = prompt("Outgoing Attending RN Name:", "Sarah Jenkins, RN");
+                          const inS = prompt("Incoming Attending RN Name:", "Keith Carter, LPN");
+                          const alerts = prompt("Critical Alerts notes:", "ICU Bed 101 heart values dipping, watch medications.");
+                          const note = prompt("General shift notes summaries:");
+                          if (outS && inS) {
+                            handlePublishHandoff({ outgoingStaff: outS, incomingStaff: inS, notes: note || 'Normal shift handoff continuity parameters', criticalAlerts: alerts || 'No critical alert codes reported.' });
+                            alert('Shift handover logs written inside repository database.');
+                          }
+                        }}
+                        className="w-full text-center py-1.5 bg-slate-900 text-white rounded text-[10px] uppercase font-bold font-mono hover:bg-slate-800 cursor-pointer"
+                      >
+                        PUBLISH SHIFT RE-HANDOFF LOGS
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Patient Bedside Vital History Timeline records */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">Bedside Continuous bio-telemetry record feed</h3>
+                    <p className="text-xs text-slate-400">Automatic categorization labels parameters according to clinician guidelines</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                      <tr>
+                        <th className="px-6 py-2">Timestamp Logged</th>
+                        <th className="px-6 py-2">Patient Case</th>
+                        <th className="px-6 py-2 text-center">Diagnostics BP</th>
+                        <th className="px-6 py-2 text-center">Heart Rate (bpm)</th>
+                        <th className="px-6 py-2 text-center font-mono">SpO2 % Oxygen</th>
+                        <th className="px-6 py-2 text-center">Temp (°F)</th>
+                        <th className="px-6 py-2 text-center">Risk Classification</th>
+                        <th className="px-6 py-2 text-right">Attending Supervisor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {vitals.map(v => (
+                        <tr key={v.id} className="hover:bg-slate-55/40 text-slate-650">
+                          <td className="px-6 py-3 font-sans text-slate-400">{v.recordedAt}</td>
+                          <td className="px-6 py-3 font-sans font-bold text-slate-805">{v.patientName}</td>
+                          <td className="px-6 py-3 text-center">{v.bloodPressure}</td>
+                          <td className="px-6 py-3 text-center">{v.heartRate}</td>
+                          <td className="px-6 py-3 text-center text-blue-600 font-bold">{v.spO2}%</td>
+                          <td className="px-6 py-3 text-center">{v.temperature}</td>
+                          <td className="px-6 py-3 text-center">
+                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded font-sans uppercase tracking-widest ${
+                              v.classification === 'Critical' ? 'bg-red-100 text-red-808 font-black animate-pulse' :
+                              v.classification === 'Warning' ? 'bg-amber-105 text-amber-808' :
+                              'bg-emerald-100 text-emerald-808'
+                            }`}>{v.classification}</span>
+                          </td>
+                          <td className="px-6 py-3 text-right font-sans text-slate-440">{v.loggedBy}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* 4. PRACTITIONER BOARD (DOCTOR VIEW) */}
+          {activePersona === 'practitioner' && (
+            <div className="space-y-6">
+              
+              {/* Doctor credential profiles selection box */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+                    <Stethoscope className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-md font-bold text-slate-850">Attending Practitioner Workspace Node</h2>
+                    <p className="text-xs text-slate-400">Select clinical practitioner to load dynamic daily metrics & schedule schedules</p>
+                  </div>
+                </div>
+
+                {/* Switch active practitioner dropdown */}
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">Operator Identity:</span>
+                  <select
+                    value={selectedDoctorId}
+                    onChange={(e) => setSelectedDoctorId(e.target.value)}
+                    className="bg-white border-none rounded-lg text-xs py-1.5 px-3.5 font-bold text-slate-705 focus:outline-hidden"
+                  >
+                    {doctors.map(doc => (
+                      <option key={doc.id} value={doc.id}>{doc.name} ({doc.specialty})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Practitioner metrics overview widgets */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">Active IPD oversight</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1">
+                    {patients.filter(p => p.assignedDoctorId === activeDoctor?.id).length} Patients
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">Designated under {activeDoctor?.name} direct medical management</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">Practitioner earnings</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1">
+                    ${activeDoctor ? activeDoctor.earnings + (appointments.filter(a => a.doctorId === activeDoctor.id).length * 150) : '$0'}
+                  </div>
+                  <div className="text-xs text-teal-650 font-bold font-mono mt-1">Earned this fiscal licensing period</div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">Patient Rating Index</span>
+                  <div className="text-3xl font-extrabold text-slate-900 mt-1">
+                    ★ {activeDoctor ? activeDoctor.rating.toFixed(1) : '5.0'} / 5.0
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">Overall clinical rating for patient satisfaction audits</div>
+                </div>
+              </div>
+
+              {/* Schedules, custom Prescription writers, and direct lab analysis interconnects */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Practitioner Schedule list */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-805 text-xs pb-2 border-b border-white flex items-center gap-1">
+                      <Calendar className="w-4 h-4 text-blue-600" /> Consultative Appointment Queue
+                    </h3>
+                    <div className="divide-y divide-slate-100 space-y-2.5 mt-3 max-h-[300px] overflow-y-auto">
+                      {appointments
+                        .filter(a => a.doctorId === activeDoctor?.id)
+                        .map(apt => (
+                          <div key={apt.id} className="pt-2.5 text-xs space-y-1.5 bg-slate-50/80 p-3 rounded-xl border">
+                            <div className="flex justify-between items-center font-bold">
+                              <span>Patient: {apt.patientName}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase ${
+                                apt.status === 'Completed' ? 'bg-emerald-105 text-emerald-805' : 'bg-blue-105 text-blue-805'
+                              }`}>{apt.status}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono">Slot: {apt.timeSlot} | {apt.type}</div>
+                            {apt.status === 'Scheduled' && (
+                              <button
+                                onClick={() => {
+                                  setAppointments(prev => prev.map(a => a.id === apt.id ? { ...a, status: 'Completed' } : a));
+                                  alert('Appointment marked as triaged / complete.');
+                                }}
+                                className="px-2 py-0.5 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded font-bold font-mono cursor-pointer"
+                              >
+                                START & COMPLETE SESSION
+                              </button>
+                            )}
+                          </div>
+                      ))}
+                      {appointments.filter(a => a.doctorId === activeDoctor?.id).length === 0 && (
+                        <div className="text-center py-6 text-slate-400 text-xs">
+                          No diagnostic consultative sessions scheduled for today
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SMART PRESCRIPTION EHR WRITER MODULE */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 flex items-center gap-1.5 uppercase">
+                      <FilePlus className="w-4 h-4 text-indigo-600" />
+                      Smart EHR Prescription Writer
+                    </h3>
+                    
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const patId = fd.get('pxPat');
+                        const diag = fd.get('pxDiag');
+                        const med1 = fd.get('pxMed1');
+                        const dose1 = fd.get('pxDose1');
+
+                        const selectedP = patients.find(p => p.id === patId);
+                        if (selectedP && diag && med1 && dose1) {
+                          handleWritePrescription({
+                            patientId: selectedP.id,
+                            patientName: selectedP.name,
+                            diagnosis: diag,
+                            medicines: [
+                              { name: med1, dosage: dose1, duration: '14 Days', instructions: 'Take post-meals with water' }
+                            ]
+                          });
+                          e.currentTarget.reset();
+                          alert('Electronic Prescription successfully published into EHR Document Wallet.');
+                        }
+                      }}
+                      className="mt-4 space-y-2 text-xs"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400">Target Inpatient under oversight</span>
+                        <select name="pxPat" className="w-full bg-slate-50 border p-1 rounded">
+                          {patients
+                            .filter(p => p.assignedDoctorId === activeDoctor?.id)
+                            .map(p => (
+                              <option key={p.id} value={p.id}>{p.name} ({p.age}y {p.gender})</option>
+                          ))}
+                          {patients.filter(p => p.assignedDoctorId === activeDoctor?.id).length === 0 && (
+                            patients.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} (Global)</option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400">Clinical Diagnosis</span>
+                        <input required type="text" name="pxDiag" placeholder="e.g. Suspected Neural hyper-reflexia" className="w-full p-1.5 bg-slate-55 border rounded text-xs" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1 bg-slate-50 p-2.5 rounded-lg border">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400">Therapeutic Medicine</span>
+                          <input required type="text" name="pxMed1" placeholder="Atorvastatin, Amoxicillin..." className="w-full p-1 bg-white border rounded text-xs" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 text-right">Dosing structure</span>
+                          <input required type="text" name="pxDose1" placeholder="50mg, 1-0-1 daily" className="w-full p-1 bg-white border rounded text-xs font-mono" />
+                        </div>
+                      </div>
+
+                      <button type="submit" className="w-full py-2 bg-indigo-650 hover:bg-indigo-700 text-white font-bold font-mono tracking-wider text-[10px] uppercase rounded-lg cursor-pointer mt-2">
+                        ISSUE SIGNED DIGITAL ORDER
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Direct Lab Interconnect reports checking */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-2 border-b border-slate-100 uppercase flex items-center gap-1">
+                      <FileText className="w-4 h-4 text-teal-650" /> Direct Lab Interconnect & Results
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">Review diagnostic lab results returned by internal pathology operations departments.</p>
+                    <div className="divide-y divide-slate-100 space-y-2 mt-4 max-h-[250px] overflow-y-auto">
+                      {labOrders.map(lab => (
+                        <div key={lab.id} className="pt-2 text-xs space-y-1 bg-slate-50 p-2 rounded-xl border">
+                          <div className="flex justify-between font-bold">
+                            <span>{lab.patientName}</span>
+                            <span className={lab.status === 'Completed' ? 'text-emerald-600' : 'text-blue-500'}>{lab.status}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">Test: {lab.testName}</div>
+                          {lab.result ? (
+                            <div className="p-1.5 bg-emerald-50 text-emerald-800 border border-emerald-100 text-[10px] italic rounded">
+                              Diagnostic findings: {lab.result}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400 font-mono italic">Awaiting clinical operator check results...</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Active IPD round tracker table logs */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+                  <h3 className="font-bold text-slate-855 text-sm">Active IPD oversight Patient round directory</h3>
+                  <span className="text-[10px] text-slate-400 font-mono"> अटेंडिंग डॉक्टर: {activeDoctor?.name}</span>
+                </div>
+
+                <div className="overflow-x-auto text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                      <tr>
+                        <th className="px-6 py-2">Patient Profile</th>
+                        <th className="px-6 py-2 text-center">Age & Gender</th>
+                        <th className="px-6 py-2 text-center text-indigo-500">Admitted Bed</th>
+                        <th className="px-6 py-2">Continuous vitals summary</th>
+                        <th className="px-6 py-2">Latest diagnostic records</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {patients
+                        .filter(p => p.assignedDoctorId === activeDoctor?.id)
+                        .map(p => {
+                          const bed = beds.find(b => b.patientId === p.id);
+                          const patVitals = vitals.find(v => v.patientId === p.id);
+                          const patPrescs = prescriptions.find(x => x.patientId === p.id);
+
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50">
+                              <td className="px-6 py-4 font-semibold text-slate-800">{p.name}</td>
+                              <td className="px-6 py-4 text-center text-slate-500">{p.age}y / {p.gender}</td>
+                              <td className="px-6 py-4 text-center font-bold text-indigo-600 font-mono">{bed ? bed.bedNumber : 'Outpatient / General Desk'}</td>
+                              <td className="px-6 py-4 text-slate-655 font-mono">
+                                {patVitals ? (
+                                  <span>BP: {patVitals.bloodPressure} | HR: {patVitals.heartRate} bpm | SpO2: {patVitals.spO2}%</span>
+                                ) : (
+                                  <span className="text-slate-440 italic">Awaiting nurse continuous vitals write...</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-slate-650">
+                                {patPrescs ? patPrescs.diagnosis : 'No clinical prescriptions written yet.'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* 5. CONSUMER & FAMILY PORTAL (PATIENT MODULE) */}
+          {activePersona === 'patient-portal' && (
+            <div className="space-y-6">
+              
+              {/* Connected Family Care profile selector */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
+                    <User className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-md font-bold text-slate-850">Connected Family Care delegation wallet</h2>
+                    <p className="text-xs text-slate-400">Seamlessly coordinate medical sessions, documents and reminders for your children or parents</p>
+                  </div>
+                </div>
+
+                {/* Profile switch handler */}
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">Delegate Account Profile:</span>
+                  <select
+                    value={selectedPatientId}
+                    onChange={(e) => setSelectedPatientId(e.target.value)}
+                    className="bg-white border-none rounded-lg text-xs py-1.5 px-3.5 font-bold text-slate-705 focus:outline-hidden"
+                  >
+                    <option value="pat-1">Elena Rostova (Self)</option>
+                    <option value="pat-3">Chloe Henderson (Sister)</option>
+                    <option value="pat-5">Maria Rostova (Mother - Dependent)</option>
+                    <option value="pat-7">Peter Parker (Nephew)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Patient core operations layout grids */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Discovery doctor finder & appointment schedule engine */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-805 text-xs pb-3 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <PlusCircle className="w-4 h-4 text-blue-600" />
+                      Find Specialist & Book Appointments
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-2">Discover clinical medical experts and request virtual or physical check session slots.</p>
+                    
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        const docId = fd.get('aptDoc');
+                        const date = fd.get('aptDate');
+                        const time = fd.get('aptTime');
+                        const type = fd.get('aptType');
+
+                        if (docId && date && time) {
+                          handleBookAppointment({
+                            doctorId: docId,
+                            date,
+                            timeSlot: time,
+                            type
+                          });
+                          e.currentTarget.reset();
+                          alert('Appointment session successfully synchronized inside provider workstation schedule.');
+                        }
+                      }}
+                      className="mt-4 space-y-3.5 text-xs"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block mb-1">Select clinical practitioner</span>
+                        <select name="aptDoc" className="w-full bg-slate-50 border p-1.5 rounded-lg text-xs">
+                          {doctors.map(d => (
+                            <option key={d.id} value={d.id}>{d.name} ({d.specialty}) — ★ {d.rating.toFixed(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 block mb-1">Choose Date</span>
+                          <input required type="date" name="aptDate" defaultValue="2026-05-21" className="w-full p-1.5 bg-slate-50 border rounded text-xs" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 block mb-1">Method</span>
+                          <select name="aptType" className="w-full p-1.5 bg-slate-50 border rounded text-xs">
+                            <option value="In-Person">In-Person Consultation</option>
+                            <option value="Telemedicine">Telemedicine consult</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block mb-1">Preferred Time slot sequence</span>
+                        <input required type="text" name="aptTime" defaultValue="11:00 AM - 11:30 AM" className="w-full p-1.5 bg-slate-55 border rounded text-xs font-mono" />
+                      </div>
+                      <button type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider font-mono rounded-lg cursor-pointer">
+                        CONFIRM APPOINTMENT RE-RESERVED
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Permanent Electronic discharge, scripts, radiology, and discharge EHR wallet documents */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-3 border-b border-slate-100 flex items-center gap-1.5 uppercase tracking-wide">
+                      <FileSpreadsheet className="w-4 h-4 text-indigo-650" />
+                      EHR Medical Records & prescriptions Wallet
+                    </h3>
+                    
+                    <div className="divide-y divide-slate-100 space-y-3 mt-4 max-h-[280px] overflow-y-auto">
+                      {prescriptions
+                        .filter(p => p.patientId === activePatient.id)
+                        .map(px => (
+                          <div key={px.id} className="pt-2 text-xs space-y-1 bg-slate-50 p-3 rounded-lg border">
+                            <div className="flex justify-between font-bold">
+                              <span>EHR Rx Code: {px.id}</span>
+                              <span className="text-indigo-600">{px.date}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-700"><strong className="text-slate-850">Diagnosis:</strong> {px.diagnosis}</div>
+                            <div className="text-[10px] text-slate-500 font-mono pt-1">Attending: {px.doctorName}</div>
+                            
+                            {/* Medicine specs */}
+                            <div className="mt-2 text-[10px] space-y-1 bg-white p-2 rounded border leading-relaxed">
+                              {px.medicines.map((m, i) => (
+                                <div key={i} className="text-slate-700 font-medium">
+                                  💊 <strong className="text-blue-700">{m.name}</strong> — {m.dosage} ({m.duration}) : {m.instructions}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                      ))}
+                      {prescriptions.filter(p => p.patientId === activePatient.id).length === 0 && (
+                        <div className="text-center py-8 text-slate-400">
+                          No computerized clinical prescription sheets saved on this wallet yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Patient medicine adherence trackers & Reminders Compliance Engine */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-3 border-b border-slate-100 uppercase tracking-wide flex items-center gap-1.5">
+                      <Pill className="w-4 h-4 text-emerald-650" /> Compliance Reminders Reminders
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-2 font-sans">Track your wellness compliance records for prescribed pharmaceuticals schedules:</p>
+                    
+                    <div className="mt-4 space-y-2 bg-slate-50 p-3.5 rounded-xl border">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-700">Metoprolol (Morning dosage)</span>
+                        <input
+                          type="checkbox"
+                          checked={medicineChecked.morning}
+                          onChange={(e) => setMedicineChecked({ ...medicineChecked, morning: e.target.checked })}
+                          className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50">
+                        <span className="font-semibold text-slate-700">Aspirin (Noon post meal dosage)</span>
+                        <input
+                          type="checkbox"
+                          checked={medicineChecked.afternoon}
+                          onChange={(e) => setMedicineChecked({ ...medicineChecked, afternoon: e.target.checked })}
+                          className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50">
+                        <span className="font-semibold text-slate-700">Atorvastatin (Bedtime tablet dosage)</span>
+                        <input
+                          type="checkbox"
+                          checked={medicineChecked.evening}
+                          onChange={(e) => setMedicineChecked({ ...medicineChecked, evening: e.target.checked })}
+                          className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Calculated adherence state index dials */}
+                    <div className="mt-4 flex items-center justify-between text-xs">
+                      <span className="font-medium text-slate-500">Today's Adherence Rate Counter:</span>
+                      <strong className="text-emerald-600 text-sm">
+                        {Math.round(([medicineChecked.morning, medicineChecked.afternoon, medicineChecked.evening].filter(Boolean).length / 3) * 100)}%
+                      </strong>
+                    </div>
+
+                    <div className="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden border">
+                      <div 
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round(([medicineChecked.morning, medicineChecked.afternoon, medicineChecked.evening].filter(Boolean).length / 3) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Financial Bills desk & simulated customer chat desk portal */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                
+                {/* Payment invoice billing transparency checklist panel */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-802 text-xs pb-3 border-b border-slate-100 uppercase tracking-wide">
+                      Financial Transparency desk ("My Bills")
+                    </h3>
+                    <div className="space-y-3.5 mt-4 max-h-[300px] overflow-y-auto">
+                      {invoices
+                        .filter(i => i.patientId === activePatient.id)
+                        .map(inv => (
+                          <div key={inv.id} className="text-xs p-3.5 bg-slate-50 rounded-xl border border-slate-150 space-y-1.5 flex justify-between items-start">
+                            <div>
+                              <div className="font-bold text-slate-800">Hospital Admission invoice {inv.id}</div>
+                              <div className="text-[10px] text-slate-400">Published on {inv.date}</div>
+                              <div className="p-1 mt-1 bg-white inline-block rounded text-[10px] text-slate-500 select-all font-mono leading-tight">
+                                {inv.services.map(s => s.description).join(', ')}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="block font-bold text-slate-850 font-mono text-sm">${inv.totalAmount}</span>
+                              <span className={`inline-block px-2 py-0.5 mt-1 rounded text-[10px] font-mono font-black uppercase ${
+                                inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-805' : 'bg-red-105 text-red-805 font-bold animate-pulse'
+                              }`}>{inv.status}</span>
+                            </div>
+                          </div>
+                      ))}
+                      {invoices.filter(i => i.patientId === activePatient.id).length === 0 && (
+                        <div className="text-center py-8 text-slate-400 text-xs">
+                          No treatment invoice charts saved on checkout databases.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated telecare medical live consult chat */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-xs pb-3 border-b border-slate-100 uppercase tracking-wide flex items-center gap-1">
+                      <MessageSquare className="w-4 h-4 text-blue-600 text-xs" /> Support Live Care Portal Chat
+                    </h3>
+                    <div className="space-y-3 mt-4 h-48 overflow-y-auto p-2 bg-slate-50/70 border border-slate-100 rounded-xl">
+                      {chatMessages.map(msg => (
+                        <div key={msg.id} className={`flex flex-col text-xs ${msg.isBot ? 'items-start' : 'items-end'}`}>
+                          <div className={`p-2.5 rounded-2xl max-w-[280px] leading-relaxed text-xs shadow-xs ${
+                            msg.isBot 
+                              ? 'bg-slate-900 text-white rounded-tl-none font-sans' 
+                              : 'bg-indigo-600 text-white rounded-tr-none'
+                          }`}>
+                            {msg.text}
+                          </div>
+                          <span className="text-[9px] text-slate-400 font-mono mt-1 px-1">{msg.sender} • {msg.timestamp}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const fd = new FormData(e.currentTarget);
+                      const text = fd.get('chatText');
+                      if (text) {
+                        handleSendChatMessage(text);
+                        e.currentTarget.reset();
+                      }
+                    }}
+                    className="mt-4 flex gap-1.5"
+                  >
+                    <input required type="text" name="chatText" placeholder="Ask support queue or AI assistance..." className="flex-1 p-2 bg-slate-100 rounded-lg text-xs" />
+                    <button type="submit" className="p-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center shrink-0 cursor-pointer">
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+        </div>
+
+        {/* METADATA COOPERATIVE HUD FOOTER STATUS BAR */}
+        <footer className="h-12 bg-slate-900 text-slate-400 border-t border-slate-800 px-6 sm:px-8 flex flex-col sm:flex-row items-center justify-between text-[10px] font-bold font-mono tracking-widest uppercase gap-2 py-2 shrink-0">
+          <div className="flex gap-6">
+            <span>API PIPELINE ENDPOINTS: V2.8.4</span>
+            <span className="text-emerald-400">NETWORK TRANSIT DELAY: 14ms (ONLINE)</span>
+          </div>
+          <div className="text-slate-500 font-mono text-center sm:text-right">
+            Last Immutable backup interval: 03:00 UTC • Managed directly by MedCore SecOps Core
+          </div>
+        </footer>
+
+      </main>
+    </div>
+  );
+}

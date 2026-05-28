@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "hospital": {
+      "title": "Hospital",
+      "description": "Healthcare enterprise group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "tier": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "branchesCount": { "type": "number" },
+        "contactEmail": { "type": "string" },
+        "joinedDate": { "type": "string" }
+      },
+      "required": ["id", "name", "code", "tier", "isActive"]
+    },
+    "branch": {
+      "title": "Branch",
+      "description": "Hospital wing facility or physical branch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hospitalId": { "type": "string" },
+        "name": { "type": "string" },
+        "city": { "type": "string" },
+        "bedsTotal": { "type": "number" },
+        "bedsOccupied": { "type": "number" },
+        "bedsAvailable": { "type": "number" },
+        "staffCount": { "type": "number" },
+        "activeDoctorsCount": { "type": "number" }
+      },
+      "required": ["id", "hospitalId", "name", "city"]
+    },
+    "bed": {
+      "title": "Bed",
+      "description": "Intensive care and general ward bed positions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "branchId": { "type": "string" },
+        "wardName": { "type": "string" },
+        "bedNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" }
+      },
+      "required": ["id", "branchId", "wardName", "bedNumber", "status"]
+    },
+    "doctor": {
+      "title": "Doctor",
+      "description": "Consulting physician profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "branchId": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "rating": { "type": "number" },
+        "availability": { "type": "string" },
+        "contact": { "type": "string" },
+        "earnings": { "type": "number" }
+      },
+      "required": ["id", "branchId", "name", "specialty"]
+    },
+    "patient": {
+      "title": "Patient",
+      "description": "Patient electronic health care profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "branchId": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "bloodGroup": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "registeredDate": { "type": "string" },
+        "status": { "type": "string" },
+        "assignedDoctorId": { "type": "string" }
+      },
+      "required": ["id", "branchId", "name", "email"]
+    },
+    "appointment": {
+      "title": "Appointment",
+      "description": "Consultation meeting bookings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "branchId": { "type": "string" },
+        "date": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "patientId", "doctorId", "date", "status"]
+    },
+    "invoice": {
+      "title": "Invoice",
+      "description": "Patient billing statements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "branchId": { "type": "string" },
+        "date": { "type": "string" },
+        "services": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "patientId", "totalAmount", "status"]
+    },
+    "branchAdmin": {
+      "title": "BranchAdmin",
+      "description": "Branch Ops Facility Administrator",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "branchId": { "type": "string" },
+        "branchName": { "type": "string" },
+        "status": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "permissions": { "type": "array" }
+      },
+      "required": ["id", "name", "status", "email", "phone"]
+    },
+    "auditLog": {
+      "title": "AuditLog",
+      "description": "Secure action logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userType": { "type": "string" },
+        "action": { "type": "string" },
+        "ip": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "userType", "action"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "Real-time communication notification messages across portals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "urgency": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "targetRole": { "type": "string" }
+      },
+      "required": ["id", "senderName", "title", "message", "urgency", "timestamp", "targetRole"]
+    },
+    "license": {
+      "title": "License",
+      "description": "Tenant licensing tiers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "duration"]
+    }
+  },
+  "firestore": {
+    "hospitals": { "schema": "hospital", "description": "Global enterprise hospitals" },
+    "branches": { "schema": "branch", "description": "Global active branches" },
+    "beds": { "schema": "bed", "description": "Hospital beds inventory and occupancy" },
+    "doctors": { "schema": "doctor", "description": "Enterprise practitioners" },
+    "patients": { "schema": "patient", "description": "Registered outpatients & inpatients" },
+    "appointments": { "schema": "appointment", "description": "Consultation schedules" },
+    "invoices": { "schema": "invoice", "description": "Billing audit invoices" },
+    "branchAdmins": { "schema": "branchAdmin", "description": "Branch admins rbac requests" },
+    "notifications": { "schema": "notification", "description": "Real-time pager notification logs" },
+    "auditLogs": { "schema": "auditLog", "description": "Compliance security log journal" },
+    "licenses": { "schema": "license", "description": "Global SaaS licensing tiers" }
+  }
+}
