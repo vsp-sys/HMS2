@@ -306,6 +306,98 @@ export default function SuperAdminPanel({
   const [editAdminBranchId, setEditAdminBranchId] = useState('');
   const [editAdminPerms, setEditAdminPerms] = useState([]);
 
+  // Integrated persistent interactive states for KYC checks, Referrals, Currencies, and Dunning configurations
+  const [kycEntries, setKycEntries] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medcore_kyc_entries');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Storage read error:", e);
+    }
+    return [
+      { name: 'City Dental and Max Clinic', docs: ['State License.pdf', 'Signed Contract Agreement.pdf'], state: 'Verified', progress: '100% Onboarded' },
+      { name: 'Saint Jude Heart Sanatorium', docs: ['NABH certification.png', 'GST certificate.pdf'], state: 'Pending Approval', progress: '75% Setup Done' },
+      { name: 'Metro Trauma and Triage Hospital', docs: ['HIPAA Consent Sign.pdf', 'State Board License.pdf'], state: 'Suspended (KYC Overdue)', progress: '10% Setup Done' }
+    ];
+  });
+
+  const [referrals, setReferrals] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medcore_referrals');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Storage read error:", e);
+    }
+    return [
+      { referrer: 'Mount Sinai Clinic Node', referred: 'City General Wellness', commission: '10% MRR', status: 'Paying' },
+      { referrer: 'City General Wellness', referred: 'Holy Grace ICU Inst.', commission: '15% MRR', status: 'Pending Approval' }
+    ];
+  });
+
+  const [activeCurrency, setActiveCurrency] = useState(() => {
+    return localStorage.getItem('medcore_active_currency') || 'USD ($)';
+  });
+
+  const [dunningReminderOption, setDunningReminderOption] = useState(() => {
+    return localStorage.getItem('medcore_dunning_reminder') || 'Send 7 days before expiry';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('medcore_kyc_entries', JSON.stringify(kycEntries));
+    } catch (e) {}
+  }, [kycEntries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('medcore_referrals', JSON.stringify(referrals));
+    } catch (e) {}
+  }, [referrals]);
+
+  useEffect(() => {
+    localStorage.setItem('medcore_active_currency', activeCurrency);
+  }, [activeCurrency]);
+
+  useEffect(() => {
+    localStorage.setItem('medcore_dunning_reminder', dunningReminderOption);
+  }, [dunningReminderOption]);
+
+  const handleApproveKyc = (index) => {
+    setKycEntries(prev => prev.map((entry, idx) => {
+      if (idx === index) {
+        return { ...entry, state: 'Verified', progress: '100% Onboarded' };
+      }
+      return entry;
+    }));
+  };
+
+  const handleRecallKyc = (index) => {
+    setKycEntries(prev => prev.map((entry, idx) => {
+      if (idx === index) {
+        return { ...entry, state: 'Pending Approval', progress: '50% Setup Pending' };
+      }
+      return entry;
+    }));
+  };
+
+  const handleApproveReferral = (index) => {
+    setReferrals(prev => prev.map((ref, idx) => {
+      if (idx === index) {
+        return { ...ref, status: 'Paying' };
+      }
+      return ref;
+    }));
+  };
+
+  const handleRecallReferral = (index) => {
+    setReferrals(prev => prev.map((ref, idx) => {
+      if (idx === index) {
+        return { ...ref, status: 'Pending Approval' };
+      }
+      return ref;
+    }));
+  };
+
   const handleEditHospSubmit = (e) => {
     e.preventDefault();
     if (editingHospId && onUpdateHospital) {
@@ -1320,7 +1412,7 @@ export default function SuperAdminPanel({
                   <thead className="bg-slate-100 text-xs text-slate-550 uppercase tracking-wider font-mono">
                     <tr>
                       <th className="px-5 py-3 text-left font-semibold">Administrator Name</th>
-                      <th className="px-5 py-3 text-left font-semibold">Assigned Facility Branch</th>
+                      <th className="px-5 py-3 text-left font-semibold">Hospital Tenants</th>
                       <th className="px-5 py-3 text-left font-semibold">Scoped Permissions Role</th>
                       <th className="px-5 py-3 text-center font-semibold">Identity Status</th>
                       <th className="px-5 py-3 text-right font-semibold">Access control</th>
@@ -2007,19 +2099,32 @@ export default function SuperAdminPanel({
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div>
                     <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono pb-1">Automated Reminders</span>
-                    <select className="w-full text-xs bg-white border border-slate-300 rounded-lg p-1.5 focus:outline-none">
-                      <option>Send 7 days before expiry</option>
-                      <option>Send 3 days before expiry</option>
-                      <option>Manual Dispatch Only</option>
+                    <select
+                      value={dunningReminderOption}
+                      onChange={(e) => setDunningReminderOption(e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-300 rounded-lg p-1.5 focus:outline-none"
+                    >
+                      <option value="Send 7 days before expiry">Send 7 days before expiry</option>
+                      <option value="Send 3 days before expiry">Send 3 days before expiry</option>
+                      <option value="Manual Dispatch Only">Manual Dispatch Only</option>
                     </select>
                   </div>
                   <div>
                     <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono pb-1">Settlement Currencies</span>
                     <div className="flex gap-1.5 pt-1.5">
                       {['USD ($)', 'INR (₹)', 'EUR (€)', 'GBP (£)'].map((curr, i) => (
-                        <span key={i} className="px-1.5 py-0.5 text-[10px] bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 font-mono rounded select-none cursor-pointer">
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveCurrency(curr)}
+                          className={`px-1.5 py-0.5 text-[10px] font-mono rounded select-none transition-all cursor-pointer border ${
+                            curr === activeCurrency 
+                              ? 'bg-indigo-600 text-white border-indigo-650 font-bold shadow-xs' 
+                              : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-705'
+                          }`}
+                        >
                           {curr}
-                        </span>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -2029,18 +2134,38 @@ export default function SuperAdminPanel({
                 <div className="pt-4 border-t border-slate-150 space-y-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">B2B Referral Registry</h4>
                   <div className="space-y-1.5">
-                    {[
-                      { referrer: 'Mount Sinai Clinic Node', referred: 'City General Wellness', commission: '10% MRR', status: 'Paying' },
-                      { referrer: 'City General Wellness', referred: 'Holy Grace ICU Inst.', commission: '15% MRR', status: 'Pending Approval' }
-                    ].map((ref, idx) => (
+                    {referrals.map((ref, idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg">
                         <div>
                           <span className="font-semibold block">{ref.referrer} ➜ {ref.referred}</span>
                           <span className="text-[10px] text-slate-505">Assigned Commission Payout: <strong>{ref.commission}</strong></span>
                         </div>
-                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${ref.status === 'Paying' ? 'bg-emerald-50 text-emerald-707 border border-emerald-250' : 'bg-amber-50 text-amber-707 border border-amber-250'}`}>
-                          {ref.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded ${
+                            ref.status === 'Paying' ? 'bg-emerald-50 text-emerald-805 border border-emerald-250' : 'bg-amber-50 text-amber-850 border border-amber-250 animate-pulse'
+                          }`}>
+                            {ref.status}
+                          </span>
+                          <div className="flex gap-1">
+                            {ref.status === 'Pending Approval' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveReferral(idx)}
+                                className="px-1.5 py-0.5 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded cursor-pointer transition-all shadow-2xs whitespace-nowrap"
+                              >
+                                Approve
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleRecallReferral(idx)}
+                                className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-250 text-rose-650 hover:bg-rose-50 rounded cursor-pointer transition-all whitespace-nowrap"
+                              >
+                                Recall
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2067,11 +2192,7 @@ export default function SuperAdminPanel({
               </div>
 
               <div className="space-y-3">
-                {[
-                  { name: 'City Dental and Max Clinic', docs: ['State License.pdf', 'Signed Contract Agreement.pdf'], state: 'Verified', progress: '100% Onboarded' },
-                  { name: 'Saint Jude Heart Sanatorium', docs: ['NABH certification.png', 'GST certificate.pdf'], state: 'Pending Approval', progress: '75% Setup Done' },
-                  { name: 'Metro Trauma and Triage Hospital', docs: ['HIPAA Consent Sign.pdf', 'State Board License.pdf'], state: 'Suspended (KYC Overdue)', progress: '10% Setup Done' }
-                ].map((kyc, i) => (
+                {kycEntries.map((kyc, i) => (
                   <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs gap-3">
                     <div className="space-y-1">
                       <strong className="text-slate-900 font-bold block">{kyc.name}</strong>
@@ -2084,10 +2205,23 @@ export default function SuperAdminPanel({
                         Status: {kyc.state}
                       </span>
                       <div className="flex gap-1.5 self-end">
-                        <button className="px-1.5 py-0.5 text-[10px] bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded cursor-pointer">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveKyc(i)}
+                          className={`px-1.5 py-0.5 text-[10px] font-semibold rounded cursor-pointer transition-all ${
+                            kyc.state === 'Verified' 
+                              ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                              : 'bg-slate-900 hover:bg-slate-800 text-white'
+                          }`}
+                          disabled={kyc.state === 'Verified'}
+                        >
                           Approve
                         </button>
-                        <button className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-250 text-rose-600 hover:bg-rose-50 rounded cursor-pointer">
+                        <button
+                          type="button"
+                          onClick={() => handleRecallKyc(i)}
+                          className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-250 text-rose-600 hover:bg-rose-50 rounded cursor-pointer transition-all"
+                        >
                           Recall
                         </button>
                       </div>

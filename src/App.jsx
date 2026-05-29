@@ -18,6 +18,7 @@ import StaffWorkspace from './components/StaffWorkspace';
 import DoctorDashboard from './components/DoctorDashboard';
 import PatientPortal from './components/PatientPortal';
 import LoginPage from './components/LoginPage';
+import LanguageSelector from './components/LanguageSelector';
 import FeaturesMatrixOverlay from './components/FeaturesMatrixOverlay';
 import SaasSubscriptionGate from './components/SaasSubscriptionGate';
 
@@ -1335,7 +1336,10 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <LanguageSelector />
+        </div>
         <LoginPage 
           initialRole={targetRoleForLogin}
           theme={theme}
@@ -1795,44 +1799,7 @@ export default function App() {
                 </span>
               </div>
               
-              {/* Global Filters Selector */}
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-205 dark:border-slate-705 rounded-xl px-2 py-0.5 shrink-0 shadow-2xs font-sans">
-                <div className="flex items-center gap-1.5 py-0.5">
-                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 dark:text-slate-500">Branch:</span>
-                  <select
-                    value={globalBranchFilter}
-                    onChange={(e) => {
-                      setGlobalBranchFilter(e.target.value);
-                      appendAuditLog('Global Filter', `Filtered dashboard branch to: ${e.target.value === 'All' ? 'All Branches' : (branches.find(b => b.id === e.target.value)?.name || e.target.value)}`);
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 border-none outline-none focus:outline-none focus:ring-0 py-0.5 cursor-pointer max-w-[150px] truncate"
-                    style={{ border: 'none', background: 'transparent' }}
-                  >
-                    <option value="All" className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold">All Branches</option>
-                    {branches.map(b => (
-                      <option key={b.id} value={b.id} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium">{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
-                <div className="flex items-center gap-1.5 py-0.5">
-                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 dark:text-slate-500">Dept:</span>
-                  <select
-                    value={globalDeptFilter}
-                    onChange={(e) => {
-                      setGlobalDeptFilter(e.target.value);
-                      appendAuditLog('Global Filter', `Filtered dashboard department to: ${e.target.value === 'All' ? 'All Specialties' : e.target.value}`);
-                    }}
-                    className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 border-none outline-none focus:outline-none focus:ring-0 py-0.5 cursor-pointer max-w-[140px] truncate"
-                    style={{ border: 'none', background: 'transparent' }}
-                  >
-                    <option value="All" className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold">All Specialties</option>
-                    <option value="Cardiology" className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium">Cardiology</option>
-                    <option value="Neurology" className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium">Neurology</option>
-                    <option value="Internal Medicine" className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium font-sans">Internal Medicine</option>
-                  </select>
-                </div>
-              </div>
+
             </div>
             
             <div className="flex items-center gap-3">
@@ -1865,6 +1832,8 @@ export default function App() {
                   </span>
                 )}
               </button>
+              
+              <LanguageSelector />
 
               <button
                 onClick={toggleTheme}
@@ -1890,54 +1859,7 @@ export default function App() {
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-slate-50/40 dark:bg-slate-950/20">
             <div className="min-h-[550px] animate-fade-in">
           
-              {/* MOBILE GLOBAL FILTERS HEADER BAR */}
-              <div className="md:hidden flex flex-col gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl mb-4 shadow-2xs font-sans">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                  <span className="flex items-center gap-1">🩺 global filters</span>
-                  { (globalBranchFilter !== 'All' || globalDeptFilter !== 'All') && (
-                    <button 
-                      onClick={() => { setGlobalBranchFilter('All'); setGlobalDeptFilter('All'); }}
-                      className="text-indigo-650 dark:text-indigo-400 normal-case font-bold cursor-pointer"
-                    >
-                      Clear All
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wide">Hospital Branch</span>
-                    <select
-                      value={globalBranchFilter}
-                      onChange={(e) => {
-                        setGlobalBranchFilter(e.target.value);
-                        appendAuditLog('Global Filter', `Filtered branch to: ${e.target.value}`);
-                      }}
-                      className="w-full text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-705 rounded-lg font-bold text-slate-800 dark:text-slate-100 outline-none"
-                    >
-                      <option value="All">All Branches</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wide">Department</span>
-                    <select
-                      value={globalDeptFilter}
-                      onChange={(e) => {
-                        setGlobalDeptFilter(e.target.value);
-                        appendAuditLog('Global Filter', `Filtered department to: ${e.target.value}`);
-                      }}
-                      className="w-full text-xs p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-705 rounded-lg font-bold text-slate-800 dark:text-slate-100 outline-none"
-                    >
-                      <option value="All">All Specialties</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="Neurology">Neurology</option>
-                      <option value="Internal Medicine">Internal Medicine</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+
           
           {/* 1. Super Admin Module view */}
           {activePersona === 'super_admin' && (
@@ -2144,6 +2066,7 @@ export default function App() {
               }}
               onUpdatePatient={(pat) => {
                 return addPatientSync(pat).then(() => {
+                  setPatients(prev => prev.map(p => p.id === pat.id ? pat : p));
                   appendAuditLog('Patient Portal', `Patient profile updated and synchronized: ${pat.name}`);
                   return pat;
                 });

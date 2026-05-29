@@ -105,6 +105,9 @@ export default function LoginPage({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [pendingLogin, setPendingLogin] = useState(null);
 
   // Patient Registration fields
   const [patientName, setPatientName] = useState('');
@@ -127,6 +130,9 @@ export default function LoginPage({
     setSuccess('');
     setAuthMode('login');
     setSelectedRole(null);
+    setShowOtp(false);
+    setOtpInput('');
+    setPendingLogin(null);
   };
 
   // Main submission router
@@ -218,10 +224,13 @@ export default function LoginPage({
     if (selectedRole === 'super_admin') {
       if (emailTrimmed === 'supmin20@gmail.com' && password === 'supmin@hms20') {
         setLoading(true);
-        setSuccess('Super Admin cryptographic signature validated. Initializing Core Nodes...');
+        setSuccess('Super Admin cryptographic signature validated. Dispatching verification OTP...');
         setTimeout(() => {
           setLoading(false);
-          onLoginSuccess('super_admin', null);
+          setPendingLogin({ role: 'super_admin', payload: null, email: emailTrimmed });
+          setShowOtp(true);
+          setOtpInput('');
+          setSuccess('Secure verification OTP sent to supmin20@gmail.com. Please enter 123456 to verify.');
         }, 850);
       } else {
         setError('Access Denied: Invalid credentials for Super Admin Identity.');
@@ -241,11 +250,14 @@ export default function LoginPage({
 
       if (matchedDoc || isDefault) {
         setLoading(true);
-        setSuccess('Provider identification verified. Authorizing Physician Portal...');
+        setSuccess('Provider identification verified. Dispatching verification OTP...');
         setTimeout(() => {
           setLoading(false);
           const userPayload = matchedDoc || { id: 'doc-1', name: 'Dr. Evelyn Martinez', specialty: 'Cardiology' };
-          onLoginSuccess('doctor', userPayload);
+          setPendingLogin({ role: 'doctor', payload: userPayload, email: emailTrimmed });
+          setShowOtp(true);
+          setOtpInput('');
+          setSuccess(`Secure verification OTP sent to ${emailTrimmed}. Please enter 123456 to verify.`);
         }, 850);
       } else {
         setError('Access Denied: Incorrect doctor email address or password.');
@@ -265,11 +277,14 @@ export default function LoginPage({
 
       if (matchedStaff || isDefault) {
         setLoading(true);
-        setSuccess('Staff clearance checked. Initializing clinical dashboard...');
+        setSuccess('Staff clearance checked. Dispatching verification OTP...');
         setTimeout(() => {
           setLoading(false);
           const userPayload = matchedStaff || { id: 'nurse-1', name: 'Nurse Sarah Jenkins, RN' };
-          onLoginSuccess('staff', userPayload);
+          setPendingLogin({ role: 'staff', payload: userPayload, email: emailTrimmed });
+          setShowOtp(true);
+          setOtpInput('');
+          setSuccess(`Secure verification OTP sent to ${emailTrimmed}. Please enter 123456 to verify.`);
         }, 850);
       } else {
         setError('Access Denied: Incorrect staff email address or password.');
@@ -289,11 +304,14 @@ export default function LoginPage({
 
       if (matchedStaffAdmin || isDefault) {
         setLoading(true);
-        setSuccess('Staff Administrator clearance validated. Initializing operations hub...');
+        setSuccess('Staff Administrator clearance validated. Dispatching verification OTP...');
         setTimeout(() => {
           setLoading(false);
           const userPayload = matchedStaffAdmin || { id: 'staffadmin-1', name: 'Dr. Jane Vance, Chief Nursing Officer', role: 'staff_admin' };
-          onLoginSuccess('staff_admin', userPayload);
+          setPendingLogin({ role: 'staff_admin', payload: userPayload, email: emailTrimmed });
+          setShowOtp(true);
+          setOtpInput('');
+          setSuccess(`Secure verification OTP sent to ${emailTrimmed}. Please enter 123456 to verify.`);
         }, 850);
       } else {
         setError('Access Denied: Incorrect staff administrator email address or password. (For testing use: staffadmin@gmail.com / staff123)');
@@ -314,10 +332,13 @@ export default function LoginPage({
         const adminObj = matchedAdmin || { id: 'adm-1', branchId: 'br-1', status: 'Active' };
         if (adminObj.status === 'Active') {
           setLoading(true);
-          setSuccess('Branch Operations Admin authenticated. Syncing ward databases...');
+          setSuccess('Branch Operations Admin authenticated. Dispatching verification OTP...');
           setTimeout(() => {
             setLoading(false);
-            onLoginSuccess('branch_admin', { role: 'branch_admin', adminId: adminObj.id, branchId: adminObj.branchId });
+            setPendingLogin({ role: 'branch_admin', payload: { role: 'branch_admin', adminId: adminObj.id, branchId: adminObj.branchId }, email: emailTrimmed });
+            setShowOtp(true);
+            setOtpInput('');
+            setSuccess(`Secure verification OTP sent to ${emailTrimmed}. Please enter 123456 to verify.`);
           }, 850);
         } else if (adminObj.status === 'Pending') {
           setError('Access Pending: Registration is awaiting approval authorization check from Super Admin.');
@@ -344,10 +365,13 @@ export default function LoginPage({
         }
 
         setLoading(true);
-        setSuccess(`Patient identity verified: ${matchedPatient.name}. Accessing Patient Portal...`);
+        setSuccess(`Patient identity verified: ${matchedPatient.name}. Dispatching verification OTP...`);
         setTimeout(() => {
           setLoading(false);
-          onLoginSuccess('patient', { role: 'patient', patientId: matchedPatient.id });
+          setPendingLogin({ role: 'patient', payload: { role: 'patient', patientId: matchedPatient.id }, email: emailTrimmed });
+          setShowOtp(true);
+          setOtpInput('');
+          setSuccess(`Secure verification OTP sent to ${emailTrimmed}. Please enter 123456 to verify.`);
         }, 850);
       } else {
         setError('Access Denied: Invalid email address or credentials for Patient Portal. Click register above if you need a new account.');
@@ -356,6 +380,25 @@ export default function LoginPage({
     }
 
     setError('Access Denied: Unsupported entry point configured.');
+  };
+
+  const handleVerifyOtpSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (otpInput.trim() === '123456') {
+      setLoading(true);
+      setSuccess('High-Security OTP Verification Complete. Access Approved!');
+      setTimeout(() => {
+        setLoading(false);
+        if (pendingLogin) {
+          onLoginSuccess(pendingLogin.role, pendingLogin.payload);
+        }
+      }, 750);
+    } else {
+      setError('Invalid OTP Verification Code. Please enter the standard test OTP: 123456');
+    }
   };
 
   return (
@@ -441,7 +484,7 @@ export default function LoginPage({
             </button>
 
             {/* TOGGLE LOGIN / REGISTER MODAL FOR SYSTEM ELIGIBLE ROLES (PATIENT AND BRANCH ADMIN ONLY) */}
-            {(selectedRole === 'patient' || selectedRole === 'branch_admin') && (
+            {(!showOtp && (selectedRole === 'patient' || selectedRole === 'branch_admin')) && (
               <div className="flex items-center bg-slate-200 p-0.5 rounded-lg text-[11px]">
                 <button
                   type="button"
@@ -461,19 +504,21 @@ export default function LoginPage({
             )}
           </div>
 
-          <div className="border-b border-slate-200 pb-3 mt-1 text-center sm:text-left">
-            {GATEWAYS[selectedRole].badge && (
-              <span className="px-2 py-0.5 text-[9px] font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-150 rounded uppercase pb-2">
-                {GATEWAYS[selectedRole].badge}
-              </span>
-            )}
-            <h3 className="text-sm font-black text-slate-850 mt-0.5">
-              {GATEWAYS[selectedRole].name} Portal 
-            </h3>
-            <p className="text-[11px] text-slate-555 mt-0.5 leading-normal">
-              {authMode === 'register' ? 'Set up a new secure healthcare clinical account.' : GATEWAYS[selectedRole].desc}
-            </p>
-          </div>
+          {!showOtp && (
+            <div className="border-b border-slate-200 pb-3 mt-1 text-center sm:text-left">
+              {GATEWAYS[selectedRole].badge && (
+                <span className="px-2 py-0.5 text-[9px] font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-150 rounded uppercase pb-2">
+                  {GATEWAYS[selectedRole].badge}
+                </span>
+              )}
+              <h3 className="text-sm font-black text-slate-850 mt-0.5">
+                {GATEWAYS[selectedRole].name} Portal 
+              </h3>
+              <p className="text-[11px] text-slate-555 mt-0.5 leading-normal">
+                {authMode === 'register' ? 'Set up a new secure healthcare clinical account.' : GATEWAYS[selectedRole].desc}
+              </p>
+            </div>
+          )}
 
           {/* DYNAMIC ERROR / SUCCESS DIRECTIVES */}
           {error && (
@@ -490,7 +535,63 @@ export default function LoginPage({
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          {showOtp ? (
+            <form onSubmit={handleVerifyOtpSubmit} className="space-y-4 animate-fade-in" id="otp-form-element">
+              <div className="text-center py-2">
+                <div className="mx-auto w-12 h-12 bg-blue-55 text-blue-650 rounded-full flex items-center justify-center mb-2 border border-blue-150">
+                  <ShieldCheck className="w-6 h-6 text-blue-600" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Two-Factor OTP Security</h4>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  A high-security verification OTP has been generated & dispatched to:<br/>
+                  <strong className="text-slate-800 font-mono font-bold">{pendingLogin?.email}</strong>
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">
+                  Enter 6-digit Verification OTP
+                </label>
+                <input
+                  required
+                  type="text"
+                  maxLength={6}
+                  pattern="\d*"
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value)}
+                  placeholder="Enter 123456"
+                  className="w-full text-center tracking-widest text-lg font-bold py-2 bg-slate-50 border border-slate-350 focus:outline-hidden focus:border-indigo-650 focus:bg-white rounded-xl text-slate-900 font-mono"
+                  id="otp-input-field"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOtp(false);
+                    setOtpInput('');
+                    setPendingLogin(null);
+                    setError('');
+                    setSuccess('');
+                  }}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs tracking-wider uppercase rounded-xl cursor-pointer transition-all border border-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  id="otp-verify-btn"
+                >
+                  {loading ? 'Verifying...' : 'Verify OTP'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3.5">
             
             {/* REGISTER MODE DYNAMIC EXTRA FIELDS */}
             {authMode === 'register' && selectedRole === 'patient' && (
@@ -668,6 +769,7 @@ export default function LoginPage({
                   : 'Log in'}
             </button>
           </form>
+          )}
 
 
         </div>
